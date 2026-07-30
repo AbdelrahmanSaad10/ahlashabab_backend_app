@@ -22,12 +22,21 @@ import {
   UpdateArticleDto,
   UpdateArticleSchema,
 } from './dto/update-article.dto';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiZodBody } from '../common/swagger/api-zod-body.decorator';
+import { ApiPaginationQuery } from '../common/swagger/api-pagination-query.decorator';
 
+@ApiTags('Articles')
+@ApiBearerAuth('access-token')
 @Controller('admin/articles')
 @UseInterceptors(ActivityLogInterceptor)
 export class ArticlesAdminController {
   constructor(private readonly articlesService: ArticlesService) {}
 
+  @ApiOperation({ summary: 'List articles (drafts included)', description: 'Requires portfolio:read.' })
+  @ApiQuery({ name: 'category', required: false })
+  @ApiQuery({ name: 'published', required: false, schema: { type: 'boolean' }, description: 'Omit for both' })
+  @ApiPaginationQuery()
   @Get()
   @RequirePermission('portfolio', 'read')
   findAll(
@@ -46,6 +55,8 @@ export class ArticlesAdminController {
     });
   }
 
+  @ApiOperation({ summary: 'Create an article', description: 'Requires portfolio:write.' })
+  @ApiZodBody(CreateArticleSchema)
   @Post()
   @RequirePermission('portfolio', 'write')
   @UsePipes(new ZodValidationPipe(CreateArticleSchema))
@@ -53,6 +64,8 @@ export class ArticlesAdminController {
     return this.articlesService.create(dto);
   }
 
+  @ApiOperation({ summary: 'Update an article', description: 'Requires portfolio:write.' })
+  @ApiZodBody(UpdateArticleSchema)
   @Patch(':id')
   @RequirePermission('portfolio', 'write')
   update(
@@ -62,12 +75,14 @@ export class ArticlesAdminController {
     return this.articlesService.update(id, dto);
   }
 
+  @ApiOperation({ summary: 'Publish or unpublish an article', description: 'Toggles. Requires portfolio:write.' })
   @Patch(':id/publish')
   @RequirePermission('portfolio', 'write')
   togglePublish(@Param('id') id: string) {
     return this.articlesService.togglePublish(id);
   }
 
+  @ApiOperation({ summary: 'Delete an article', description: 'Requires portfolio:write.' })
   @Delete(':id')
   @RequirePermission('portfolio', 'write')
   remove(@Param('id') id: string) {

@@ -1,11 +1,19 @@
 import { Controller, Get } from '@nestjs/common';
 import { Public } from '../common/decorators/public.decorator';
 import { PortfolioService } from './portfolio.service';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Foundation')
 @Controller()
 export class FoundationController {
   constructor(private readonly portfolioService: PortfolioService) {}
 
+  @ApiOperation({
+    summary: 'Home screen aggregate',
+    description:
+      'One call for the whole home screen: `stats`, `workAreas`, `quickServices` (top 6 root '
+      + 'categories), `featuredCase` and `featuredProject` (each the newest published one).',
+  })
   @Public()
   @Get('home')
   async getHomePage() {
@@ -42,6 +50,10 @@ export class FoundationController {
     };
   }
 
+  @ApiOperation({
+    summary: 'About-the-foundation aggregate',
+    description: 'Returns `stats`, `milestones`, `values`, `initiatives` and `workAreas` in one call.',
+  })
   @Public()
   @Get('foundation')
   async getFoundationPage() {

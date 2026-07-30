@@ -22,12 +22,20 @@ import {
   UpdateCategoryDto,
   UpdateCategorySchema,
 } from './dto/update-category.dto';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiZodBody } from '../common/swagger/api-zod-body.decorator';
+import { ApiPaginationQuery } from '../common/swagger/api-pagination-query.decorator';
 
+@ApiTags('Categories')
+@ApiBearerAuth('access-token')
 @Controller('admin/categories')
 @UseInterceptors(ActivityLogInterceptor)
 export class CategoriesAdminController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
+  @ApiOperation({ summary: 'List categories', description: 'Requires services:read.' })
+  @ApiQuery({ name: 'parentId', required: false })
+  @ApiPaginationQuery()
   @Get()
   @RequirePermission('services', 'read')
   findAll(
@@ -44,6 +52,8 @@ export class CategoriesAdminController {
     });
   }
 
+  @ApiOperation({ summary: 'Create a category', description: 'Requires services:write.' })
+  @ApiZodBody(CreateCategorySchema)
   @Post()
   @RequirePermission('services', 'write')
   @UsePipes(new ZodValidationPipe(CreateCategorySchema))
@@ -51,6 +61,8 @@ export class CategoriesAdminController {
     return this.categoriesService.create(dto);
   }
 
+  @ApiOperation({ summary: 'Update a category', description: 'Requires services:write.' })
+  @ApiZodBody(UpdateCategorySchema)
   @Patch(':id')
   @RequirePermission('services', 'write')
   update(
@@ -60,12 +72,14 @@ export class CategoriesAdminController {
     return this.categoriesService.update(id, dto);
   }
 
+  @ApiOperation({ summary: 'Activate or deactivate a category', description: 'Toggles. Inactive categories are hidden from the public list. Requires services:write.' })
   @Patch(':id/active')
   @RequirePermission('services', 'write')
   toggleActive(@Param('id') id: string) {
     return this.categoriesService.toggleActive(id);
   }
 
+  @ApiOperation({ summary: 'Delete a category', description: 'Requires services:write.' })
   @Delete(':id')
   @RequirePermission('services', 'write')
   remove(@Param('id') id: string) {
