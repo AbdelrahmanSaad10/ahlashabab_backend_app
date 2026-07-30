@@ -46,18 +46,57 @@ export class CmsMigrationService {
 
     if (current < 5) {
       this.logger.log('CMS migration 4 → 5: ensure paymentMethods');
+      // Shape must match PaymentMethodInfo in the app's @ahla/shared: the Donate
+      // screen reads id/group/description/availability/manual. The earlier
+      // key/label/enabled/icon default did not match anything that consumes it,
+      // so a fresh deploy or a CMS reset would have rendered no payment methods.
+      // `manual: true` = waits on admin approval; false = waits on the gateway.
       result.paymentMethods = result.paymentMethods ?? [
-        { key: 'card', label: 'بطاقة بنكية', enabled: true, icon: 'credit-card' },
-        { key: 'fawry', label: 'فوري', enabled: true, icon: 'fawry' },
-        { key: 'instapay', label: 'إنستاباي', enabled: true, icon: 'instapay' },
-        { key: 'vodafone_cash', label: 'فودافون كاش', enabled: true, icon: 'vodafone' },
-        { key: 'bank_transfer', label: 'تحويل بنكي', enabled: true, icon: 'bank' },
+        { id: 'بطاقة بنكية', group: 'دفع إلكتروني', description: 'فيزا / ماستركارد — تأكيد فوري من بوابة الدفع', availability: 'متاحة', manual: false },
+        { id: 'فوري', group: 'دفع إلكتروني', description: 'ادفع بكود فوري من أقرب منفذ', availability: 'متاحة', manual: false },
+        { id: 'إنستاباي', group: 'تحويل بنكي', description: 'حوِّل عبر إنستاباي — يُعتمد بعد مراجعة الإدارة', availability: 'متاحة', manual: true },
+        { id: 'فودافون كاش', group: 'محفظة إلكترونية', description: 'الدفع عبر المحفظة الإلكترونية', availability: 'قيد التفعيل', manual: false },
+        { id: 'تحويل بنكي', group: 'تحويل بنكي', description: 'تحويل على حساب الجمعية — يُعتمد بعد مراجعة الإدارة', availability: 'متاحة', manual: true },
       ];
       result.schemaVersion = 5;
       current = 5;
     }
 
-    // Future migrations go here (6, 7, ...)
+    if (current < 6) {
+      this.logger.log('CMS migration 5 → 6: align settings field names with the app');
+      result.settings = result.settings ?? {};
+      const st = result.settings;
+
+      // Rename to the names the mobile app, dashboard store and shared types all
+      // use. Backfill-on-read and idempotent: the old key is only consumed if the
+      // new one is absent, then deleted.
+      const RENAMES: Record<string, string> = {
+        contactPhone: 'hotline',
+        contactEmail: 'email',
+        contactAddress: 'address',
+        socialLinks: 'socials',
+        zakatNisab: 'zakatNisabEgp',
+      };
+      for (const [from, to] of Object.entries(RENAMES)) {
+        if (st[from] !== undefined) {
+          st[to] = st[to] ?? st[from];
+          delete st[from];
+        }
+      }
+
+      // Settings the app reads but nothing ever populated.
+      st.splashText = st.splashText ?? 'معاً نصنع أثراً يدوم';
+      st.website = st.website ?? 'https://ahlashabab.com';
+      st.donationReassurance =
+        st.donationReassurance ??
+        'لن يُعتمد تبرعك إلا بعد تأكيد العملية من بوابة الدفع أو مراجعة الإدارة.';
+      st.socials = st.socials ?? { facebook: '', instagram: '', youtube: '', twitter: '' };
+
+      result.schemaVersion = 6;
+      current = 6;
+    }
+
+    // Future migrations go here (7, 8, ...)
 
     if (result.schemaVersion !== CMS_SCHEMA_VERSION) {
       this.logger.warn(
