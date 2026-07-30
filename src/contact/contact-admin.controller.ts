@@ -10,12 +10,20 @@ import {
 import { ActivityLogInterceptor } from '../common/interceptors/activity-log.interceptor';
 import { RequirePermission } from '../common/decorators/permissions.decorator';
 import { ContactService } from './contact.service';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Contact')
+@ApiBearerAuth('access-token')
 @Controller('admin/messages')
 @UseInterceptors(ActivityLogInterceptor)
 export class ContactAdminController {
   constructor(private readonly contactService: ContactService) {}
 
+  @ApiOperation({ summary: 'List contact messages', description: 'Paginated. Requires portfolio:read.' })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', default: 1 } })
+  @ApiQuery({ name: 'limit', required: false, schema: { type: 'integer', default: 20 } })
+  @ApiQuery({ name: 'q', required: false, description: 'Free-text search' })
   @Get()
   @RequirePermission('portfolio', 'read')
   findAll(
@@ -32,6 +40,8 @@ export class ContactAdminController {
     });
   }
 
+  @ApiOperation({ summary: 'Update a contact message', description: 'Set a status and/or attach an internal note. Requires portfolio:write.' })
+  @ApiBody({ schema: { type: 'object', properties: { status: { type: 'string' }, note: { type: 'string' } } } })
   @Patch(':id')
   @RequirePermission('portfolio', 'write')
   updateMessage(

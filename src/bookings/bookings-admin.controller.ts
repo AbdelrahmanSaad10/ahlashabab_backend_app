@@ -21,7 +21,11 @@ import {
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { RequirePermission } from '../common/decorators/permissions.decorator';
 import { CurrentAdmin } from '../common/decorators/current-admin.decorator';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiProduces, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiZodBody, ApiZodQuery } from '../common/swagger/api-zod-body.decorator';
 
+@ApiTags('Bookings')
+@ApiBearerAuth('access-token')
 @Controller('admin/bookings')
 export class BookingsAdminController {
   constructor(private readonly bookingsService: BookingsService) {}
@@ -30,6 +34,8 @@ export class BookingsAdminController {
    * GET /admin/bookings
    * List bookings with filters, search, and pagination.
    */
+  @ApiOperation({ summary: 'List bookings', description: 'Paginated. Requires bookings:read.' })
+  @ApiZodQuery(BookingFiltersSchema)
   @RequirePermission('bookings', 'read')
   @Get()
   @UsePipes(new ZodValidationPipe(BookingFiltersSchema))
@@ -41,6 +47,8 @@ export class BookingsAdminController {
    * PATCH /admin/bookings/:id/status
    * Update a booking's status (state machine validated).
    */
+  @ApiOperation({ summary: 'Update a booking status', description: 'The acting admin is recorded in the activity log. Requires bookings:write.' })
+  @ApiZodBody(UpdateBookingStatusSchema)
   @RequirePermission('bookings', 'write')
   @Patch(':id/status')
   updateStatus(
@@ -56,6 +64,8 @@ export class BookingsAdminController {
    * PATCH /admin/bookings/:id
    * Reschedule a booking (change date/time without changing status).
    */
+  @ApiOperation({ summary: 'Reschedule a booking', description: 'Moves it to a new date and slot; the status is left alone. Requires bookings:write.' })
+  @ApiBody({ schema: { type: 'object', required: ['date', 'timeSlot'], properties: { date: { type: 'string', format: 'date' }, timeSlot: { type: 'string', description: 'Must be one of the slots GET /services/{id}/availability returned' } } } })
   @RequirePermission('bookings', 'write')
   @Patch(':id')
   reschedule(
@@ -70,6 +80,10 @@ export class BookingsAdminController {
    * GET /admin/bookings/calendar?providerId=&from=&to=
    * Calendar view: bookings grouped by date for a provider.
    */
+  @ApiOperation({ summary: 'Calendar view for one provider', description: 'Requires bookings:read.' })
+  @ApiQuery({ name: 'providerId', required: true })
+  @ApiQuery({ name: 'from', required: true, schema: { type: 'string', format: 'date' }, description: 'Inclusive start, YYYY-MM-DD' })
+  @ApiQuery({ name: 'to', required: true, schema: { type: 'string', format: 'date' }, description: 'Inclusive end, YYYY-MM-DD' })
   @RequirePermission('bookings', 'read')
   @Get('calendar')
   getCalendar(
@@ -84,6 +98,10 @@ export class BookingsAdminController {
    * GET /admin/bookings/export?format=csv|xlsx
    * Export bookings as CSV or XLSX.
    */
+  @ApiOperation({ summary: 'Export bookings', description: 'Accepts the same filters as the list. Returns a file, not the `{ data }` envelope. Requires bookings:read.' })
+  @ApiZodQuery(BookingFiltersSchema)
+  @ApiQuery({ name: 'format', required: false, schema: { type: 'string', default: 'csv' } })
+  @ApiProduces('text/csv')
   @RequirePermission('bookings', 'read')
   @Get('export')
   async exportBookings(

@@ -8,11 +8,17 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { RequirePermission } from '../common/decorators/permissions.decorator';
 import { UploadService } from './upload.service';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Uploads')
+@ApiBearerAuth('access-token')
 @Controller('admin/uploads')
 export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
+  @ApiOperation({ summary: 'Upload a file', description: 'Multipart. Requires portfolio:write.' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', required: ['file'], properties: { file: { type: 'string', format: 'binary' } } } })
   @Post()
   @RequirePermission('portfolio', 'write')
   @UseInterceptors(

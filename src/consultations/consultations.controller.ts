@@ -7,11 +7,22 @@ import {
   CreateConsultationDto,
   CreateConsultationSchema,
 } from './dto/create-consultation.dto';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiZodBody } from '../common/swagger/api-zod-body.decorator';
 
+@ApiTags('Consultations')
 @Controller('consultations')
 export class ConsultationsController {
   constructor(private readonly consultationsService: ConsultationsService) {}
 
+  @ApiOperation({
+    summary: 'Submit a consultation request',
+    description:
+      'Public intake. The `type` must match a consultation type key from GET /cms '
+      + '(the app uses Arabic keys). Unknown per-type answers go in `extraFields`. '
+      + 'Rate limited to 3 requests per minute per IP.',
+  })
+  @ApiZodBody(CreateConsultationSchema)
   @Public()
   @Post()
   @Throttle({ default: { limit: 3, ttl: 60000 } })

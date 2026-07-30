@@ -10,24 +10,45 @@ import { ActivityLogInterceptor } from '../common/interceptors/activity-log.inte
 import { RequirePermission } from '../common/decorators/permissions.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { CmsService } from './cms.service';
+import { CmsSettingsDto } from './dto/cms-response.dto';
 import {
   UpdateSettingsDto,
   UpdateSettingsSchema,
 } from './dto/update-settings.dto';
 import { UpdateMenuDto, UpdateMenuSchema } from './dto/update-menu.dto';
 import { UpdateHomeDto, UpdateHomeSchema } from './dto/update-home.dto';
+import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiZodBody } from '../common/swagger/api-zod-body.decorator';
 
+@ApiTags('CMS')
+@ApiBearerAuth('access-token')
 @Controller('admin/cms')
 @UseInterceptors(ActivityLogInterceptor)
 export class CmsAdminController {
   constructor(private readonly cmsService: CmsService) {}
 
+  @ApiOperation({
+    summary: 'Replace the entire CMS state',
+    description:
+      'Blunt instrument — overwrites the whole blob. The body is not validated (`any`), so a malformed '
+      + 'payload is stored as sent. Prefer the targeted routes below. Requires cms:write.',
+  })
+  @ApiBody({ schema: { type: 'object', description: 'A full CmsState — see the CmsStateDto schema on GET /cms' } })
   @Put()
   @RequirePermission('cms', 'write')
   replaceState(@Body() body: any) {
     return this.cmsService.replaceState(body);
   }
 
+  @ApiOperation({
+    summary: 'Update CMS settings',
+    description:
+      'Partial merge. The schema is `z.record(z.string(), z.any())`, so ANY key is accepted and stored — '
+      + 'a misspelled key is not rejected, it is simply saved and then ignored by the app. The keys the app '
+      + 'actually reads are the ones on CmsSettingsDto (see GET /cms). Requires cms:write.',
+  })
+  @ApiZodBody(UpdateSettingsSchema, 'Free-form key/value map. Recognised keys: see CmsSettingsDto on GET /cms.')
+  @ApiExtraModels(CmsSettingsDto)
   @Patch('settings')
   @RequirePermission('cms', 'write')
   updateSettings(
@@ -36,6 +57,8 @@ export class CmsAdminController {
     return this.cmsService.updateSettings(dto);
   }
 
+  @ApiOperation({ summary: 'Replace the app menu', description: 'PUT semantics — send every group. Requires cms:write.' })
+  @ApiZodBody(UpdateMenuSchema)
   @Put('menu')
   @RequirePermission('cms', 'write')
   replaceMenu(
@@ -44,6 +67,8 @@ export class CmsAdminController {
     return this.cmsService.replaceMenu(dto.menu);
   }
 
+  @ApiOperation({ summary: 'Replace the home section list', description: 'PUT semantics — send every section, in the order they should render. Requires cms:write.' })
+  @ApiZodBody(UpdateHomeSchema)
   @Put('home')
   @RequirePermission('cms', 'write')
   replaceHome(
