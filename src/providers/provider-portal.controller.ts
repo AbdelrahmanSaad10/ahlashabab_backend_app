@@ -17,12 +17,16 @@ import {
   BookingStatus,
   BOOKING_TRANSITIONS,
 } from '../common/constants/statuses';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiPaginationQuery } from '../common/swagger/api-pagination-query.decorator';
 
 interface AdminUserPayload {
   id: string;
   providerId?: string | null;
 }
 
+@ApiTags('Provider portal')
+@ApiBearerAuth('access-token')
 @Controller('me/provider')
 export class ProviderPortalController {
   constructor(private readonly prisma: PrismaService) {}
@@ -64,6 +68,12 @@ export class ProviderPortalController {
   // GET /me/provider/bookings
   // ──────────────────────────────────────────────
 
+  @ApiOperation({
+    summary: "List the signed-in provider's bookings",
+    description: 'Scoped to the provider linked to the calling admin account (AdminUser.providerId). Answers 403 for an admin with no linked provider.',
+  })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiPaginationQuery()
   @Get('bookings')
   async getBookings(
     @CurrentAdmin() adminUser: AdminUserPayload,
@@ -117,6 +127,8 @@ export class ProviderPortalController {
   // PATCH /me/provider/bookings/:id/status
   // ──────────────────────────────────────────────
 
+  @ApiOperation({ summary: 'Update the status of one of your bookings' })
+  @ApiBody({ schema: { type: 'object', required: ['status'], properties: { status: { type: 'string' } } } })
   @Patch('bookings/:id/status')
   async updateBookingStatus(
     @CurrentAdmin() adminUser: AdminUserPayload,
@@ -160,6 +172,8 @@ export class ProviderPortalController {
   // PATCH /me/provider/bookings/:id/schedule
   // ──────────────────────────────────────────────
 
+  @ApiOperation({ summary: 'Reschedule one of your bookings' })
+  @ApiBody({ schema: { type: 'object', required: ['date', 'timeSlot'], properties: { date: { type: 'string', format: 'date' }, timeSlot: { type: 'string' } } } })
   @Patch('bookings/:id/schedule')
   async rescheduleBooking(
     @CurrentAdmin() adminUser: AdminUserPayload,
@@ -224,6 +238,7 @@ export class ProviderPortalController {
   // GET /me/provider/overview
   // ──────────────────────────────────────────────
 
+  @ApiOperation({ summary: 'Dashboard counters for the signed-in provider' })
   @Get('overview')
   async getOverview(@CurrentAdmin() adminUser: AdminUserPayload) {
     const providerId = this.getProviderId(adminUser);
