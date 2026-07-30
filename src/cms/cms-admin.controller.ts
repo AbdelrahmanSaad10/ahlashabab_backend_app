@@ -10,13 +10,14 @@ import { ActivityLogInterceptor } from '../common/interceptors/activity-log.inte
 import { RequirePermission } from '../common/decorators/permissions.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { CmsService } from './cms.service';
+import { CmsSettingsDto } from './dto/cms-response.dto';
 import {
   UpdateSettingsDto,
   UpdateSettingsSchema,
 } from './dto/update-settings.dto';
 import { UpdateMenuDto, UpdateMenuSchema } from './dto/update-menu.dto';
 import { UpdateHomeDto, UpdateHomeSchema } from './dto/update-home.dto';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiZodBody } from '../common/swagger/api-zod-body.decorator';
 
 @ApiTags('CMS')
@@ -39,8 +40,15 @@ export class CmsAdminController {
     return this.cmsService.replaceState(body);
   }
 
-  @ApiOperation({ summary: 'Update CMS settings', description: 'Partial merge. Requires cms:write.' })
-  @ApiZodBody(UpdateSettingsSchema)
+  @ApiOperation({
+    summary: 'Update CMS settings',
+    description:
+      'Partial merge. The schema is `z.record(z.string(), z.any())`, so ANY key is accepted and stored — '
+      + 'a misspelled key is not rejected, it is simply saved and then ignored by the app. The keys the app '
+      + 'actually reads are the ones on CmsSettingsDto (see GET /cms). Requires cms:write.',
+  })
+  @ApiZodBody(UpdateSettingsSchema, 'Free-form key/value map. Recognised keys: see CmsSettingsDto on GET /cms.')
+  @ApiExtraModels(CmsSettingsDto)
   @Patch('settings')
   @RequirePermission('cms', 'write')
   updateSettings(
