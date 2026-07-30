@@ -31,6 +31,9 @@ async function bootstrap() {
     .setTitle('أحلى شباب API')
     .setDescription('Backend API for Ahla Shabab Foundation — جمعية خواطر أحلى شباب')
     .setVersion('1.0.0')
+    // Without a server entry, generated clients have no base URL to target.
+    .addServer('https://portfolio.27lashabab.com', 'production')
+    .addServer('http://localhost:4000', 'local')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'access-token')
     .addTag('Auth', 'OTP & admin authentication')
     .addTag('Categories', 'Service categories (public + admin)')

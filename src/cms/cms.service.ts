@@ -68,14 +68,45 @@ export class CmsService {
     const row = await this.getState();
     const migrated = this.migration.migrate(this.rowToBlob(row));
 
+    // Media lives in its own table, not in the CMS blob. The app resolves
+    // imageId/mediaId against this list via getMediaSrc(), so omitting it makes
+    // every CMS-authored image render as nothing. `srcUrl` is mapped to `src`,
+    // which is what MediaItem in @ahla/shared expects.
+    const mediaRows = await this.prisma.cmsMedia.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    const media = mediaRows.map((m) => ({
+      id: m.id,
+      title: m.title,
+      alt: m.alt,
+      caption: m.caption,
+      folder: m.folder,
+      src: m.srcUrl,
+      type: m.type,
+      width: m.width,
+      height: m.height,
+      sizeBytes: m.sizeBytes,
+      createdAt: m.createdAt,
+      updatedAt: m.updatedAt,
+    }));
+
+    // Field names here are the app's contract (CmsState in @ahla/shared), not the
+    // column names. `version` and `consultations` are what the mobile app, the
+    // dashboard store, the CMS migrations and the test suite all read.
     return {
-      schemaVersion: migrated.schemaVersion,
+      version: migrated.schemaVersion,
       settings: migrated.settings,
       menu: migrated.menu,
       home: migrated.home,
       pages: (migrated.pages as any[]).filter((p: any) => p.status === 'published'),
+      media,
       paymentMethods: migrated.paymentMethods,
-      consultationTypes: migrated.consultationTypes,
+      consultations: migrated.consultationTypes,
+      // The app's CmsState types `activity` as required, so send it — but always
+      // empty here: the audit log is admin-only and must not leak to a public,
+      // unauthenticated endpoint. Real entries come from GET /admin/activity.
+      activity: [],
+      updatedAt: row.updatedAt ?? null,
     };
   }
 
@@ -417,11 +448,38 @@ export class CmsService {
     };
   }
 
+  /**
+   * Settings for a brand-new install.
+   *
+   * IMPORTANT: `getState()` creates the first row already stamped at
+   * CMS_SCHEMA_VERSION, so `migrate()` runs no migrations against it. That means
+   * these defaults — not the migration backfills — are what a fresh deployment
+   * actually gets. They must therefore always represent the CURRENT schema in
+   * full. Any future migration that backfills a field has to add it here too, or
+   * new installs will silently lack it.
+   *
+   * Shape is CmsSettings from the app's @ahla/shared. Previously this returned
+   * only foundationName/tagline/logoUrl, none of which the app reads, so a fresh
+   * install served settings the app could not use at all.
+   */
   private defaultSettings() {
     return {
-      foundationName: 'أهل الشباب',
-      tagline: '',
-      logoUrl: '',
+      appName: 'خواطر أحلى شباب',
+      heroTitle: 'جمعية خواطر أحلى شباب',
+      heroSubtitle: 'جمعية خيرية مصرية — تبرعات موثوقة وخدمات مجانية للأسر الأولى بالرعاية.',
+      splashText: 'معاً نصنع أثراً يدوم',
+      primaryColor: '#18489F',
+      secondaryColor: '#E9AF31',
+      hotline: '',
+      email: '',
+      address: '',
+      workingHours: '',
+      website: 'https://ahlashabab.com',
+      socials: { facebook: '', instagram: '', youtube: '', twitter: '' },
+      zakatNisabEgp: 357000,
+      donationReassurance:
+        'لن يُعتمد تبرعك إلا بعد تأكيد العملية من بوابة الدفع أو مراجعة الإدارة.',
+      demoLabel: '',
       stats: {
         governorates: '12',
         beneficiaries: '1.2M+',
@@ -430,13 +488,23 @@ export class CmsService {
     };
   }
 
+  /**
+   * Shape is PaymentMethodInfo from the app's @ahla/shared — the Donate screen
+   * reads id/group/description/availability/manual. The previous
+   * key/label/enabled/icon shape matched nothing that consumes it, so a fresh
+   * install rendered no payment methods at all.
+   *
+   * `manual: true` = the donation waits on admin review (قيد المراجعة);
+   * `false` = it waits on the gateway callback (قيد التأكيد). The app never marks
+   * a donation successful on its own.
+   */
   private defaultPaymentMethods() {
     return [
-      { key: 'card', label: 'بطاقة بنكية', enabled: true, icon: 'credit-card' },
-      { key: 'fawry', label: 'فوري', enabled: true, icon: 'fawry' },
-      { key: 'instapay', label: 'إنستاباي', enabled: true, icon: 'instapay' },
-      { key: 'vodafone_cash', label: 'فودافون كاش', enabled: true, icon: 'vodafone' },
-      { key: 'bank_transfer', label: 'تحويل بنكي', enabled: true, icon: 'bank' },
+      { id: 'بطاقة بنكية', group: 'دفع إلكتروني', description: 'فيزا / ماستركارد — تأكيد فوري من بوابة الدفع', availability: 'متاحة', manual: false },
+      { id: 'فوري', group: 'دفع إلكتروني', description: 'ادفع بكود فوري من أقرب منفذ', availability: 'متاحة', manual: false },
+      { id: 'إنستاباي', group: 'تحويل بنكي', description: 'حوِّل عبر إنستاباي — يُعتمد بعد مراجعة الإدارة', availability: 'متاحة', manual: true },
+      { id: 'فودافون كاش', group: 'محفظة إلكترونية', description: 'الدفع عبر المحفظة الإلكترونية', availability: 'قيد التفعيل', manual: false },
+      { id: 'تحويل بنكي', group: 'تحويل بنكي', description: 'تحويل على حساب الجمعية — يُعتمد بعد مراجعة الإدارة', availability: 'متاحة', manual: true },
     ];
   }
 
