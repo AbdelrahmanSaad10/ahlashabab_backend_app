@@ -98,11 +98,11 @@ const DEFAULT_PAGES = [
 ];
 
 const DEFAULT_PAYMENT_METHODS = [
-  { id: 'card', group: 'إلكتروني', description: 'الدفع بالبطاقة البنكية', availability: 'متاحة', manual: false },
-  { id: 'fawry', group: 'إلكتروني', description: 'الدفع عبر فوري', availability: 'قيد التفعيل', manual: true },
-  { id: 'instapay', group: 'تحويل', description: 'تحويل عبر إنستاباي', availability: 'متاحة', manual: true },
-  { id: 'vodafone', group: 'محفظة', description: 'فودافون كاش', availability: 'متاحة', manual: true },
-  { id: 'bank', group: 'تحويل', description: 'تحويل بنكي مباشر', availability: 'متاحة', manual: true },
+  { key: 'card', label: 'بطاقة بنكية', enabled: true, icon: 'credit-card', manual: false },
+  { key: 'fawry', label: 'فوري', enabled: true, icon: 'fawry', manual: false },
+  { key: 'instapay', label: 'إنستاباي', enabled: true, icon: 'instapay', manual: true },
+  { key: 'vodafone_cash', label: 'فودافون كاش', enabled: true, icon: 'vodafone', manual: false },
+  { key: 'bank_transfer', label: 'تحويل بنكي', enabled: true, icon: 'bank', manual: true },
 ];
 
 const DEFAULT_CONSULTATION_TYPES = [
@@ -110,48 +110,75 @@ const DEFAULT_CONSULTATION_TYPES = [
     key: 'psychological',
     label: 'استشارة نفسية',
     icon: 'brain',
-    description: 'استشارات الدعم النفسي والإرشاد',
-    enabled: true,
+    disclaimer: 'هذه الخدمة لا تغني عن زيارة طبيب متخصص في الحالات الطارئة.',
     fields: [
-      { key: 'name', label: 'الاسم الكامل', type: 'text', required: true },
+      { key: 'name', label: 'الاسم', type: 'text', required: true },
       { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
       { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
-      { key: 'age', label: 'العمر', type: 'age', required: false },
-      { key: 'governorate', label: 'المحافظة', type: 'governorate', required: true },
-      { key: 'preferredChannel', label: 'وسيلة التواصل المفضلة', type: 'radio', required: true, options: ['هاتف', 'واتساب', 'حضوري'] },
-      { key: 'preferredTime', label: 'الوقت المفضل', type: 'radio', required: true, options: ['صباحاً', 'ظهراً', 'مساءً'] },
-      { key: 'summary', label: 'وصف مختصر للمشكلة', type: 'textarea', required: true },
+      { key: 'age', label: 'العمر', type: 'number', required: false },
+      { key: 'gender', label: 'النوع', type: 'select', required: false, options: ['ذكر', 'أنثى'] },
+      { key: 'preferredChannel', label: 'وسيلة التواصل المفضلة', type: 'select', required: false, options: ['هاتف', 'واتساب', 'حضوري'] },
+      { key: 'preferredTime', label: 'الوقت المفضل', type: 'select', required: false, options: ['صباحاً', 'ظهراً', 'مساءً'] },
+      { key: 'summary', label: 'ملخص المشكلة', type: 'textarea', required: false },
+      { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
     ],
   },
   {
     key: 'legal',
     label: 'استشارة قانونية',
     icon: 'scale',
-    description: 'استشارات المساعدة القانونية',
-    enabled: true,
+    disclaimer: 'هذه الاستشارة استرشادية ولا تمثل رأياً قانونياً ملزماً.',
     fields: [
-      { key: 'name', label: 'الاسم الكامل', type: 'text', required: true },
+      { key: 'name', label: 'الاسم', type: 'text', required: true },
       { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
       { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
-      { key: 'governorate', label: 'المحافظة', type: 'governorate', required: true },
-      { key: 'caseType', label: 'نوع القضية', type: 'radio', required: true, options: ['أحوال شخصية', 'قضية عمالية', 'أخرى'] },
-      { key: 'summary', label: 'وصف القضية', type: 'textarea', required: true },
+      { key: 'caseType', label: 'نوع القضية', type: 'select', required: true, options: ['أحوال شخصية', 'قضايا عمالية', 'نزاعات مالية', 'أخرى'] },
+      { key: 'summary', label: 'تفاصيل القضية', type: 'textarea', required: true },
+      { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
     ],
   },
   {
     key: 'family',
     label: 'استشارة أسرية',
     icon: 'users',
-    description: 'استشارات شؤون الأسرة والتربية',
-    enabled: true,
+    disclaimer: 'جميع المعلومات سرية ولا يتم مشاركتها مع أي طرف.',
     fields: [
-      { key: 'name', label: 'الاسم الكامل', type: 'text', required: true },
+      { key: 'name', label: 'الاسم', type: 'text', required: true },
       { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
       { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
-      { key: 'whatsapp', label: 'واتساب', type: 'whatsapp', required: false },
-      { key: 'governorate', label: 'المحافظة', type: 'governorate', required: true },
-      { key: 'preferredChannel', label: 'وسيلة التواصل المفضلة', type: 'radio', required: true, options: ['هاتف', 'واتساب', 'حضوري'] },
-      { key: 'summary', label: 'وصف الموضوع', type: 'textarea', required: true },
+      { key: 'familySize', label: 'عدد أفراد الأسرة', type: 'number', required: false },
+      { key: 'preferredChannel', label: 'وسيلة التواصل المفضلة', type: 'select', required: false, options: ['هاتف', 'واتساب', 'حضوري'] },
+      { key: 'summary', label: 'وصف المشكلة', type: 'textarea', required: false },
+      { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
+    ],
+  },
+  {
+    key: 'social',
+    label: 'استشارة اجتماعية',
+    icon: 'home',
+    disclaimer: 'خدمة مجانية مقدمة من جمعية خواطر أحلى شباب.',
+    fields: [
+      { key: 'name', label: 'الاسم', type: 'text', required: true },
+      { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
+      { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
+      { key: 'governorate', label: 'المحافظة', type: 'governorate', required: false },
+      { key: 'summary', label: 'وصف الحالة', type: 'textarea', required: false },
+      { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
+    ],
+  },
+  {
+    key: 'educational',
+    label: 'استشارة تعليمية',
+    icon: 'book',
+    disclaimer: 'خدمة مجانية مقدمة من جمعية خواطر أحلى شباب.',
+    fields: [
+      { key: 'name', label: 'الاسم', type: 'text', required: true },
+      { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
+      { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
+      { key: 'age', label: 'العمر', type: 'number', required: false },
+      { key: 'educationLevel', label: 'المرحلة التعليمية', type: 'select', required: false, options: ['ابتدائي', 'إعدادي', 'ثانوي', 'جامعي'] },
+      { key: 'summary', label: 'تفاصيل الاستشارة', type: 'textarea', required: false },
+      { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
     ],
   },
 ];
@@ -164,7 +191,7 @@ export async function seedCmsState(prisma: PrismaClient) {
     update: {},
     create: {
       id: 1,
-      schemaVersion: 5,
+      schemaVersion: 7,
       settingsJson: DEFAULT_SETTINGS,
       menuJson: DEFAULT_MENU,
       homeJson: DEFAULT_HOME,
@@ -174,5 +201,5 @@ export async function seedCmsState(prisma: PrismaClient) {
     },
   });
 
-  console.log('  ✓ CMS state (schema v5)');
+  console.log('  ✓ CMS state (schema v7)');
 }

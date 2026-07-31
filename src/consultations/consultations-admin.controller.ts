@@ -9,7 +9,12 @@ import {
 } from '@nestjs/common';
 import { ActivityLogInterceptor } from '../common/interceptors/activity-log.interceptor';
 import { RequirePermission } from '../common/decorators/permissions.decorator';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { ConsultationsService } from './consultations.service';
+import {
+  ScheduleConsultationSchema,
+  ScheduleConsultationDto,
+} from './dto/schedule-consultation.dto';
 
 @Controller('admin/consultations')
 @UseInterceptors(ActivityLogInterceptor)
@@ -41,5 +46,14 @@ export class ConsultationsAdminController {
     @Body('status') status: string,
   ) {
     return this.consultationsService.updateStatus(id, status);
+  }
+
+  @Patch(':id/schedule')
+  @RequirePermission('portfolio', 'write')
+  scheduleConsultation(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(ScheduleConsultationSchema)) dto: ScheduleConsultationDto,
+  ) {
+    return this.consultationsService.schedule(id, dto);
   }
 }

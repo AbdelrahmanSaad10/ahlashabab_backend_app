@@ -13,7 +13,7 @@ import { DonationStatus, DonationMethod } from '../common/constants/statuses';
 import { generateReference } from '../common/utils/reference.util';
 
 /** Manual payment methods that require admin review */
-const MANUAL_METHODS: string[] = [DonationMethod.BANK_TRANSFER, DonationMethod.FAWRY];
+const MANUAL_METHODS: string[] = [DonationMethod.BANK_TRANSFER, DonationMethod.INSTAPAY];
 
 /** Final (terminal) donation states that must never be regressed */
 const FINAL_STATES: string[] = [DonationStatus.COMPLETED, DonationStatus.FAILED];

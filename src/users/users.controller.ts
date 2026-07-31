@@ -5,7 +5,6 @@ import {
   Get,
   Patch,
   Post,
-  UsePipes,
 } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -33,10 +32,9 @@ export class UsersController {
   }
 
   @Patch()
-  @UsePipes(new ZodValidationPipe(UpdateProfileSchema))
   updateProfile(
     @CurrentUser() user: any,
-    @Body() dto: UpdateProfileDto,
+    @Body(new ZodValidationPipe(UpdateProfileSchema)) dto: UpdateProfileDto,
   ) {
     return this.usersService.updateProfile(user.sub, dto);
   }

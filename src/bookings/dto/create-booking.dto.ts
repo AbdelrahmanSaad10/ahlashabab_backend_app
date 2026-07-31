@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const CreateBookingSchema = z.object({
-  serviceId: z.string().uuid(),
+  serviceId: z.string().min(1),
   applicantName: z.string().min(2).max(100),
   phone: z.string().min(10).max(15),
   age: z.number().int().min(1).max(150).optional(),

@@ -5,3 +5,6 @@ uploads/
 *.js.map
 *.d.ts
 !nest-cli.json
+*.md
+*.log
+*.txt

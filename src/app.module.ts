@@ -14,6 +14,7 @@ import { EmailModule } from './email/email.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CategoriesModule } from './categories/categories.module';
+import { GovernoratesModule } from './governorates/governorates.module';
 import { ServicesModule } from './services/services.module';
 import { ProvidersModule } from './providers/providers.module';
 import { BookingsModule } from './bookings/bookings.module';
@@ -53,6 +54,7 @@ import { UploadModule } from './upload/upload.module';
     AuthModule,
     UsersModule,
     CategoriesModule,
+    GovernoratesModule,
     ServicesModule,
     ProvidersModule,
     BookingsModule,

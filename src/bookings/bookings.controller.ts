@@ -5,7 +5,6 @@ import {
   Param,
   Post,
   Query,
-  UsePipes,
 } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { CreateBookingSchema, CreateBookingDto } from './dto/create-booking.dto';
@@ -38,9 +37,8 @@ export class BookingsController {
    */
   @OptionalAuth()
   @Post('bookings')
-  @UsePipes(new ZodValidationPipe(CreateBookingSchema))
   create(
-    @Body() dto: CreateBookingDto,
+    @Body(new ZodValidationPipe(CreateBookingSchema)) dto: CreateBookingDto,
     @CurrentUser() user?: { id: string },
   ) {
     return this.bookingsService.create(dto, user?.id);

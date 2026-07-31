@@ -9,7 +9,6 @@ import {
   Query,
   UploadedFile,
   UseInterceptors,
-  UsePipes,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ActivityLogInterceptor } from '../common/interceptors/activity-log.interceptor';
@@ -25,6 +24,10 @@ import {
   PortfolioFiltersDto,
   PortfolioFiltersSchema,
 } from './dto/portfolio-filters.dto';
+import {
+  CreatePortfolioItemDto,
+  CreatePortfolioItemSchema,
+} from './dto/create-portfolio-item.dto';
 
 @Controller('admin/portfolio')
 @UseInterceptors(ActivityLogInterceptor)
@@ -59,8 +62,7 @@ export class PortfolioAdminController {
 
   @Post('cases')
   @RequirePermission('portfolio', 'write')
-  @UsePipes(new ZodValidationPipe(CreateCaseSchema))
-  createCase(@Body() dto: CreateCaseDto) {
+  createCase(@Body(new ZodValidationPipe(CreateCaseSchema)) dto: CreateCaseDto) {
     return this.portfolioService.createCase(dto);
   }
 
@@ -116,8 +118,7 @@ export class PortfolioAdminController {
 
   @Post('projects')
   @RequirePermission('portfolio', 'write')
-  @UsePipes(new ZodValidationPipe(CreateProjectSchema))
-  createProject(@Body() dto: CreateProjectDto) {
+  createProject(@Body(new ZodValidationPipe(CreateProjectSchema)) dto: CreateProjectDto) {
     return this.portfolioService.createProject(dto);
   }
 
@@ -172,13 +173,13 @@ export class PortfolioAdminController {
 
   @Post()
   @RequirePermission('portfolio', 'write')
-  create(@Body() dto: any) {
+  create(@Body(new ZodValidationPipe(CreatePortfolioItemSchema)) dto: CreatePortfolioItemDto) {
     return this.portfolioService.create(dto);
   }
 
   @Patch(':id')
   @RequirePermission('portfolio', 'write')
-  update(@Param('id') id: string, @Body() dto: any) {
+  update(@Param('id') id: string, @Body(new ZodValidationPipe(CreatePortfolioItemSchema.partial())) dto: Partial<CreatePortfolioItemDto>) {
     return this.portfolioService.update(id, dto);
   }
 

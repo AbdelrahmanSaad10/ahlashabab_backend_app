@@ -4,7 +4,6 @@ import {
   Get,
   Param,
   Post,
-  UsePipes,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
@@ -24,9 +23,8 @@ export class DonationsController {
   @Post()
   @OptionalAuth()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  @UsePipes(new ZodValidationPipe(CreateDonationSchema))
   create(
-    @Body() dto: CreateDonationDto,
+    @Body(new ZodValidationPipe(CreateDonationSchema)) dto: CreateDonationDto,
     @CurrentUser() user?: { id: string },
   ) {
     return this.donationsService.create(dto, user?.id);

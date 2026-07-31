@@ -67,9 +67,6 @@ export class CmsMigrationService {
       result.settings = result.settings ?? {};
       const st = result.settings;
 
-      // Rename to the names the mobile app, dashboard store and shared types all
-      // use. Backfill-on-read and idempotent: the old key is only consumed if the
-      // new one is absent, then deleted.
       const RENAMES: Record<string, string> = {
         contactPhone: 'hotline',
         contactEmail: 'email',
@@ -84,7 +81,6 @@ export class CmsMigrationService {
         }
       }
 
-      // Settings the app reads but nothing ever populated.
       st.splashText = st.splashText ?? 'معاً نصنع أثراً يدوم';
       st.website = st.website ?? 'https://ahlashabab.com';
       st.donationReassurance =
@@ -96,7 +92,15 @@ export class CmsMigrationService {
       current = 6;
     }
 
-    // Future migrations go here (7, 8, ...)
+    if (current < 7) {
+      this.logger.log('CMS migration 6 → 7: ensure settings.milestones');
+      result.settings = result.settings ?? {};
+      result.settings.milestones = result.settings.milestones ?? [];
+      result.schemaVersion = 7;
+      current = 7;
+    }
+
+    // Future migrations go here (8, 9, ...)
 
     if (result.schemaVersion !== CMS_SCHEMA_VERSION) {
       this.logger.warn(

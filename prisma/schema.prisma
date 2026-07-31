@@ -162,7 +162,8 @@ model Provider {
   unavailableDates ProviderUnavailableDate[]
   services         Service[]
   bookings         Booking[]
-  adminUser        AdminUser?
+  adminUser              AdminUser?
+  consultationRequests   ConsultationRequest[]
 
   @@map("providers")
 }
@@ -513,6 +514,10 @@ model ConsultationRequest {
   preferredTime    String?  @map("preferred_time")
   summary          String?
   extraFieldsJson  Json?    @map("extra_fields_json")
+  providerId       String?  @map("provider_id")
+  date             DateTime?
+  timeSlot         String?  @map("time_slot")
+  provider         Provider? @relation(fields: [providerId], references: [id])
   status           String   @default("جديد")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")

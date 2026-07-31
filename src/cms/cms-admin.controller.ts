@@ -16,6 +16,7 @@ import {
 } from './dto/update-settings.dto';
 import { UpdateMenuDto, UpdateMenuSchema } from './dto/update-menu.dto';
 import { UpdateHomeDto, UpdateHomeSchema } from './dto/update-home.dto';
+import { ImportCmsDto, ImportCmsSchema } from './dto/import-cms.dto';
 
 @Controller('admin/cms')
 @UseInterceptors(ActivityLogInterceptor)
@@ -24,7 +25,7 @@ export class CmsAdminController {
 
   @Put()
   @RequirePermission('cms', 'write')
-  replaceState(@Body() body: any) {
+  replaceState(@Body(new ZodValidationPipe(ImportCmsSchema)) body: ImportCmsDto) {
     return this.cmsService.replaceState(body);
   }
 

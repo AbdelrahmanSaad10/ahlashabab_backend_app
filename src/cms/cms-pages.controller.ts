@@ -10,7 +10,9 @@ import {
 } from '@nestjs/common';
 import { ActivityLogInterceptor } from '../common/interceptors/activity-log.interceptor';
 import { RequirePermission } from '../common/decorators/permissions.decorator';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { CmsService } from './cms.service';
+import { CreatePageDto, CreatePageSchema } from './dto/create-page.dto';
 
 @Controller('admin/cms/pages')
 @UseInterceptors(ActivityLogInterceptor)
@@ -25,13 +27,13 @@ export class CmsPagesController {
 
   @Post()
   @RequirePermission('cms', 'write')
-  createPage(@Body() body: any) {
+  createPage(@Body(new ZodValidationPipe(CreatePageSchema)) body: CreatePageDto) {
     return this.cmsService.createPage(body);
   }
 
   @Patch(':id')
   @RequirePermission('cms', 'write')
-  updatePage(@Param('id') id: string, @Body() body: any) {
+  updatePage(@Param('id') id: string, @Body(new ZodValidationPipe(CreatePageSchema.partial())) body: Partial<CreatePageDto>) {
     return this.cmsService.updatePage(id, body);
   }
 

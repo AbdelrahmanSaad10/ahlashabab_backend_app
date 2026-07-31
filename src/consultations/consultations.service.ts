@@ -121,4 +121,20 @@ export class ConsultationsService {
       data: { status },
     });
   }
+
+  async schedule(id: string, dto: { providerId: string; date: string; timeSlot: string }) {
+    const consultation = await this.prisma.consultationRequest.findUnique({ where: { id } });
+    if (!consultation) {
+      throw new NotFoundException('طلب الاستشارة غير موجود');
+    }
+    return this.prisma.consultationRequest.update({
+      where: { id },
+      data: {
+        providerId: dto.providerId,
+        date: new Date(dto.date),
+        timeSlot: dto.timeSlot,
+        status: 'تم تحديد موعد',
+      },
+    });
+  }
 }
