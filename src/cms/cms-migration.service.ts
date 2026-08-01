@@ -1,6 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CMS_SCHEMA_VERSION } from '../common/constants/statuses';
 
+const DEFAULT_MILESTONES = [
+  { year: '2013', label: 'بداية الفكرة' },
+  { year: '2015', label: 'أول قافلة إغاثية' },
+  { year: '2019', label: 'توسع في المحافظات' },
+  { year: '2022', label: 'إطلاق وصلات المياه' },
+  { year: '2025', label: 'مستمرون بفضلكم' },
+];
+
 @Injectable()
 export class CmsMigrationService {
   private readonly logger = new Logger(CmsMigrationService.name);
@@ -105,13 +113,7 @@ export class CmsMigrationService {
       result.settings = result.settings ?? {};
 
       if (!result.settings.milestones?.length) {
-        result.settings.milestones = [
-          { year: '2013', label: 'بداية الفكرة' },
-          { year: '2015', label: 'أول قافلة إغاثية' },
-          { year: '2019', label: 'توسع في المحافظات' },
-          { year: '2022', label: 'إطلاق وصلات المياه' },
-          { year: '2025', label: 'مستمرون بفضلكم' },
-        ];
+        result.settings.milestones = [...DEFAULT_MILESTONES];
       }
 
       result.schemaVersion = 8;
@@ -218,6 +220,21 @@ export class CmsMigrationService {
 
     // Future migrations go here (11, 12, ...)
 
+    // Runs on EVERY call, deliberately NOT gated on a version.
+    //
+    // The gated steps above each run at most once per row, which has now lost
+    // three separate fields in production. The live state sits at version 10
+    // with no `splashText` (added by 5 -> 6) and no `milestones` (added by
+    // 7 -> 8), because `replaceState()` migrates the INCOMING payload: a PUT
+    // /admin/cms or a CMS import carrying an already-high schemaVersion skips
+    // every gate and is written verbatim. Once that has happened the backfills
+    // can never reach it again.
+    //
+    // So the fields the app cannot render sensibly without are ensured here
+    // instead. Only absent or empty values are filled — anything an admin has
+    // set is left exactly as it is.
+    this.ensureSettingsInvariants(result);
+
     if (result.schemaVersion !== CMS_SCHEMA_VERSION) {
       this.logger.warn(
         `CMS state at schemaVersion ${result.schemaVersion}, expected ${CMS_SCHEMA_VERSION}`,
@@ -226,4 +243,31 @@ export class CmsMigrationService {
 
     return result;
   }
+  /**
+   * Fill in settings the app reads that have a sensible default, without ever
+   * overwriting a value someone has actually set.
+   *
+   * Deliberately excludes hotline / email / address / demoLabel: blank is a
+   * legitimate value for those, and inventing one would put fake contact details
+   * in front of users.
+   */
+  private ensureSettingsInvariants(result: any): void {
+    result.settings = result.settings ?? {};
+    const st = result.settings;
+
+    if (!st.splashText) st.splashText = 'معاً نصنع أثراً يدوم';
+    if (!st.website) st.website = 'https://ahlashabab.com';
+    if (!st.donationReassurance) {
+      st.donationReassurance =
+        'لن يُعتمد تبرعك إلا بعد تأكيد العملية من بوابة الدفع أو مراجعة الإدارة.';
+    }
+    if (!st.socials) st.socials = { facebook: '', instagram: '', youtube: '', twitter: '' };
+    if (!st.milestones?.length) st.milestones = [...DEFAULT_MILESTONES];
+
+    st.stats = st.stats ?? {};
+    if (!st.stats.governorates) st.stats.governorates = '12';
+    if (!st.stats.beneficiaries) st.stats.beneficiaries = '1.2M+';
+    if (!st.stats.yearsOfService) st.stats.yearsOfService = '+12';
+  }
+
 }

@@ -40,6 +40,41 @@ describe('CMS migrations', () => {
     }
   });
 
+  describe('the production state — version 10, past every gate', () => {
+    // Reproduces what portfolio.27lashabab.com actually served: schemaVersion 10
+    // with 5 consultation types and 2 menu groups (so not a fresh install), yet
+    // no splashText (added by 5 -> 6) and no milestones (added by 7 -> 8).
+    // replaceState() migrates the INCOMING payload, so a PUT /admin/cms carrying
+    // an already-high schemaVersion skips every gate and is stored verbatim.
+    const production = () => ({
+      schemaVersion: 10,
+      settings: { appName: 'خواطر أحلى شباب', hotline: '19XXX' },
+      consultationTypes: [{ key: 'psychological' }],
+      menu: [{ id: 'g1' }, { id: 'g2' }],
+    });
+
+    it('restores the fields the gated steps can no longer reach', () => {
+      const out = migrate(production());
+      expect(out.settings.milestones.length).toBeGreaterThan(0);
+      expect(out.settings.splashText).toBeTruthy();
+      expect(out.settings.donationReassurance).toBeTruthy();
+      expect(out.settings.socials).toEqual({ facebook: '', instagram: '', youtube: '', twitter: '' });
+      expect(out.settings.stats.governorates).toBeTruthy();
+    });
+
+    it('leaves everything the admin set alone', () => {
+      const out = migrate(production());
+      expect(out.settings.appName).toBe('خواطر أحلى شباب');
+      expect(out.settings.hotline).toBe('19XXX');
+    });
+
+    it('does not invent contact details that would be shown to users', () => {
+      const out = migrate({ schemaVersion: 10, settings: {} });
+      expect(out.settings.email).toBeUndefined();
+      expect(out.settings.address).toBeUndefined();
+    });
+  });
+
   it('is idempotent — migrating an already-current state changes nothing', () => {
     const once = migrate({ schemaVersion: 0, settings: {} });
     const twice = migrate(JSON.parse(JSON.stringify(once)));
