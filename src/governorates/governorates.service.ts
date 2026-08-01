@@ -6,8 +6,11 @@ export class GovernoratesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll() {
+    // Only what a picker needs. `include: { workAreas: true }` shipped createdAt
+    // and a nested work-area array on all 27 rows, on an endpoint the volunteer
+    // and booking forms both call.
     return this.prisma.governorate.findMany({
-      include: { workAreas: true },
+      select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
   }
@@ -15,7 +18,7 @@ export class GovernoratesService {
   async findOne(id: number) {
     const governorate = await this.prisma.governorate.findUnique({
       where: { id },
-      include: { workAreas: true },
+      select: { id: true, name: true },
     });
 
     if (!governorate) {

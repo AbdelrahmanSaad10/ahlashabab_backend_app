@@ -100,6 +100,28 @@ export class CmsMigrationService {
       current = 7;
     }
 
+    if (current < 8) {
+      this.logger.log('CMS migration 7 → 8: populate settings.milestones');
+      result.settings = result.settings ?? {};
+
+      // 6 -> 7 created the key but left it `[]`, so deployments that already ran
+      // it serve an empty timeline and would never be revisited — the same trap
+      // as folding this into 5 -> 6. Hence its own version. Anything an admin has
+      // already entered is left alone.
+      if (!result.settings.milestones?.length) {
+        result.settings.milestones = [
+          { year: '2013', label: 'بداية الفكرة' },
+          { year: '2015', label: 'أول قافلة إغاثية' },
+          { year: '2019', label: 'توسع في المحافظات' },
+          { year: '2022', label: 'إطلاق وصلات المياه' },
+          { year: '2025', label: 'مستمرون بفضلكم' },
+        ];
+      }
+
+      result.schemaVersion = 8;
+      current = 8;
+    }
+
     // Future migrations go here (8, 9, ...)
 
     if (result.schemaVersion !== CMS_SCHEMA_VERSION) {
