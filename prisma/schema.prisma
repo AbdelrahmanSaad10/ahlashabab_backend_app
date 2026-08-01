@@ -148,11 +148,14 @@ model Provider {
   id                String   @id @default(uuid())
   name              String
   specialization    String?
+  type              String?
   bio               String?
   yearsExperience   Int?     @map("years_experience")
+  sessions          Int      @default(0)
   rating            Float?   @default(0)
   reviews           Int?     @default(0)
   avatarUrl         String?  @map("avatar_url")
+  featured          Boolean  @default(false)
   active            Boolean  @default(true)
   acceptingBookings Boolean  @default(true) @map("accepting_bookings")
   createdAt         DateTime @default(now()) @map("created_at")

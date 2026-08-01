@@ -7,11 +7,16 @@ import {
   CreateContactDto,
   CreateContactSchema,
 } from './dto/create-contact.dto';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiZodBody } from '../common/swagger/api-zod-body.decorator';
 
+@ApiTags('Contact')
 @Controller('contact')
 export class ContactController {
   constructor(private readonly contactService: ContactService) {}
 
+  @ApiOperation({ summary: 'Send a contact message', description: 'Public. Rate limited to 3 requests per minute per IP.' })
+  @ApiZodBody(CreateContactSchema)
   @Public()
   @Post()
   @Throttle({ default: { limit: 3, ttl: 60000 } })

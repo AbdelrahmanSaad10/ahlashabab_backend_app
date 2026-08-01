@@ -9,18 +9,22 @@ import {
 } from '@nestjs/common';
 import { ActivityLogInterceptor } from '../common/interceptors/activity-log.interceptor';
 import { RequirePermission } from '../common/decorators/permissions.decorator';
-import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { ConsultationsService } from './consultations.service';
-import {
-  ScheduleConsultationSchema,
-  ScheduleConsultationDto,
-} from './dto/schedule-consultation.dto';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Consultations')
+@ApiBearerAuth('access-token')
 @Controller('admin/consultations')
 @UseInterceptors(ActivityLogInterceptor)
 export class ConsultationsAdminController {
   constructor(private readonly consultationsService: ConsultationsService) {}
 
+  @ApiOperation({ summary: 'List consultation requests', description: 'Paginated. Requires portfolio:read.' })
+  @ApiQuery({ name: 'type', required: false, description: 'Consultation type key' })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', default: 1 } })
+  @ApiQuery({ name: 'limit', required: false, schema: { type: 'integer', default: 20 } })
+  @ApiQuery({ name: 'q', required: false, description: 'Free-text search' })
   @Get()
   @RequirePermission('portfolio', 'read')
   findAll(
@@ -39,6 +43,11 @@ export class ConsultationsAdminController {
     });
   }
 
+  @ApiOperation({
+    summary: 'Update a consultation request status',
+    description: 'Requires portfolio:write. Sending `تم تحديد موعد` marks it scheduled — see BACKEND.md §20 for how that relates to bookings.',
+  })
+  @ApiBody({ schema: { type: 'object', required: ['status'], properties: { status: { type: 'string', example: 'تم تحديد موعد' } } } })
   @Patch(':id/status')
   @RequirePermission('portfolio', 'write')
   updateStatus(
@@ -46,14 +55,5 @@ export class ConsultationsAdminController {
     @Body('status') status: string,
   ) {
     return this.consultationsService.updateStatus(id, status);
-  }
-
-  @Patch(':id/schedule')
-  @RequirePermission('portfolio', 'write')
-  scheduleConsultation(
-    @Param('id') id: string,
-    @Body(new ZodValidationPipe(ScheduleConsultationSchema)) dto: ScheduleConsultationDto,
-  ) {
-    return this.consultationsService.schedule(id, dto);
   }
 }

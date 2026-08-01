@@ -7,11 +7,16 @@ import {
   CreateVolunteerDto,
   CreateVolunteerSchema,
 } from './dto/create-volunteer.dto';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiZodBody } from '../common/swagger/api-zod-body.decorator';
 
+@ApiTags('Volunteers')
 @Controller('volunteers')
 export class VolunteersController {
   constructor(private readonly volunteersService: VolunteersService) {}
 
+  @ApiOperation({ summary: 'Submit a volunteer application', description: 'Public. Rate limited to 3 requests per minute per IP.' })
+  @ApiZodBody(CreateVolunteerSchema)
   @Public()
   @Post()
   @Throttle({ default: { limit: 3, ttl: 60000 } })

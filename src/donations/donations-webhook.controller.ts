@@ -10,8 +10,10 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { z } from 'zod';
+import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { ApiZodBody } from '../common/swagger/api-zod-body.decorator';
 import { DonationsService } from './donations.service';
 
 export const PaymentWebhookSchema = z.object({
@@ -26,6 +28,7 @@ export const PaymentWebhookSchema = z.object({
 
 export type PaymentWebhookDto = z.infer<typeof PaymentWebhookSchema>;
 
+@ApiTags('Webhooks')
 @Controller('webhooks')
 export class DonationsWebhookController {
   private readonly logger = new Logger(DonationsWebhookController.name);
@@ -41,6 +44,14 @@ export class DonationsWebhookController {
    * The body is now validated, so a malformed payload is a 400 rather than the
    * 500 it used to raise inside handleWebhook.
    */
+  @ApiOperation({
+    summary: 'Payment gateway callback',
+    description:
+      'Called by the payment provider, not by clients. Verifies HMAC-SHA256 signature via x-webhook-signature header. '
+      + 'Fails closed in production if WEBHOOK_SECRET is not set.',
+  })
+  @ApiZodBody(PaymentWebhookSchema, 'Payment webhook payload')
+  @ApiHeader({ name: 'x-webhook-signature', required: false, description: 'HMAC-SHA256 hex digest of the JSON body' })
   @Post('payment')
   @Public()
   handlePayment(

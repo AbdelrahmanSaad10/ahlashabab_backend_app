@@ -28,7 +28,12 @@ import {
   CreatePortfolioItemDto,
   CreatePortfolioItemSchema,
 } from './dto/create-portfolio-item.dto';
+import { ApiBearerAuth, ApiConsumes, ApiBody, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiZodBody } from '../common/swagger/api-zod-body.decorator';
+import { ApiPaginationQuery } from '../common/swagger/api-pagination-query.decorator';
 
+@ApiTags('Portfolio Admin')
+@ApiBearerAuth('access-token')
 @Controller('admin/portfolio')
 @UseInterceptors(ActivityLogInterceptor)
 export class PortfolioAdminController {

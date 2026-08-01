@@ -98,11 +98,11 @@ const DEFAULT_PAGES = [
 ];
 
 const DEFAULT_PAYMENT_METHODS = [
-  { key: 'card', label: 'بطاقة بنكية', enabled: true, icon: 'credit-card', manual: false },
-  { key: 'fawry', label: 'فوري', enabled: true, icon: 'fawry', manual: false },
-  { key: 'instapay', label: 'إنستاباي', enabled: true, icon: 'instapay', manual: true },
-  { key: 'vodafone_cash', label: 'فودافون كاش', enabled: true, icon: 'vodafone', manual: false },
-  { key: 'bank_transfer', label: 'تحويل بنكي', enabled: true, icon: 'bank', manual: true },
+  { id: 'بطاقة بنكية', group: 'دفع إلكتروني', description: 'فيزا / ماستركارد — تأكيد فوري من بوابة الدفع', availability: 'متاحة', manual: false },
+  { id: 'فوري', group: 'دفع إلكتروني', description: 'ادفع بكود فوري من أقرب منفذ', availability: 'متاحة', manual: false },
+  { id: 'إنستاباي', group: 'تحويل بنكي', description: 'حوِّل عبر إنستاباي — يُعتمد بعد مراجعة الإدارة', availability: 'متاحة', manual: true },
+  { id: 'فودافون كاش', group: 'محفظة إلكترونية', description: 'الدفع عبر المحفظة الإلكترونية', availability: 'قيد التفعيل', manual: false },
+  { id: 'تحويل بنكي', group: 'تحويل بنكي', description: 'تحويل على حساب الجمعية — يُعتمد بعد مراجعة الإدارة', availability: 'متاحة', manual: true },
 ];
 
 const DEFAULT_CONSULTATION_TYPES = [
@@ -188,10 +188,18 @@ export async function seedCmsState(prisma: PrismaClient) {
 
   await prisma.cmsState.upsert({
     where: { id: 1 },
-    update: {},
+    update: {
+      schemaVersion: 10,
+      settingsJson: DEFAULT_SETTINGS,
+      menuJson: DEFAULT_MENU,
+      homeJson: DEFAULT_HOME,
+      pagesJson: DEFAULT_PAGES,
+      paymentMethodsJson: DEFAULT_PAYMENT_METHODS,
+      consultationsJson: DEFAULT_CONSULTATION_TYPES,
+    },
     create: {
       id: 1,
-      schemaVersion: 7,
+      schemaVersion: 10,
       settingsJson: DEFAULT_SETTINGS,
       menuJson: DEFAULT_MENU,
       homeJson: DEFAULT_HOME,
@@ -201,5 +209,5 @@ export async function seedCmsState(prisma: PrismaClient) {
     },
   });
 
-  console.log('  ✓ CMS state (schema v7)');
+  console.log('  ✓ CMS state (schema v10)');
 }

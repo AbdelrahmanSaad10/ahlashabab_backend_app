@@ -104,10 +104,6 @@ export class CmsMigrationService {
       this.logger.log('CMS migration 7 → 8: populate settings.milestones');
       result.settings = result.settings ?? {};
 
-      // 6 -> 7 created the key but left it `[]`, so deployments that already ran
-      // it serve an empty timeline and would never be revisited — the same trap
-      // as folding this into 5 -> 6. Hence its own version. Anything an admin has
-      // already entered is left alone.
       if (!result.settings.milestones?.length) {
         result.settings.milestones = [
           { year: '2013', label: 'بداية الفكرة' },
@@ -122,7 +118,105 @@ export class CmsMigrationService {
       current = 8;
     }
 
-    // Future migrations go here (8, 9, ...)
+    if (current < 9) {
+      this.logger.log('CMS migration 8 → 9: seed consultation types with disclaimer/consent/options');
+      const types = result.consultationTypes ?? [];
+      const hasDisclaimer = types.some((t: any) => t.disclaimer);
+      if (!hasDisclaimer) {
+        result.consultationTypes = [
+          {
+            key: 'psychological', label: 'استشارة نفسية', icon: 'brain',
+            disclaimer: 'هذه الخدمة لا تغني عن زيارة طبيب متخصص في الحالات الطارئة.',
+            fields: [
+              { key: 'name', label: 'الاسم', type: 'text', required: true },
+              { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
+              { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
+              { key: 'age', label: 'العمر', type: 'number', required: false },
+              { key: 'gender', label: 'النوع', type: 'select', required: false, options: ['ذكر', 'أنثى'] },
+              { key: 'preferredChannel', label: 'وسيلة التواصل المفضلة', type: 'select', required: false, options: ['هاتف', 'واتساب', 'حضوري'] },
+              { key: 'preferredTime', label: 'الوقت المفضل', type: 'select', required: false, options: ['صباحاً', 'ظهراً', 'مساءً'] },
+              { key: 'summary', label: 'ملخص المشكلة', type: 'textarea', required: false },
+              { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
+            ],
+          },
+          {
+            key: 'legal', label: 'استشارة قانونية', icon: 'scale',
+            disclaimer: 'هذه الاستشارة استرشادية ولا تمثل رأياً قانونياً ملزماً.',
+            fields: [
+              { key: 'name', label: 'الاسم', type: 'text', required: true },
+              { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
+              { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
+              { key: 'caseType', label: 'نوع القضية', type: 'select', required: true, options: ['أحوال شخصية', 'قضايا عمالية', 'نزاعات مالية', 'أخرى'] },
+              { key: 'summary', label: 'تفاصيل القضية', type: 'textarea', required: true },
+              { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
+            ],
+          },
+          {
+            key: 'family', label: 'استشارة أسرية', icon: 'users',
+            disclaimer: 'جميع المعلومات سرية ولا يتم مشاركتها مع أي طرف.',
+            fields: [
+              { key: 'name', label: 'الاسم', type: 'text', required: true },
+              { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
+              { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
+              { key: 'familySize', label: 'عدد أفراد الأسرة', type: 'number', required: false },
+              { key: 'preferredChannel', label: 'وسيلة التواصل المفضلة', type: 'select', required: false, options: ['هاتف', 'واتساب', 'حضوري'] },
+              { key: 'summary', label: 'وصف المشكلة', type: 'textarea', required: false },
+              { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
+            ],
+          },
+          {
+            key: 'social', label: 'استشارة اجتماعية', icon: 'home',
+            disclaimer: 'خدمة مجانية مقدمة من جمعية خواطر أحلى شباب.',
+            fields: [
+              { key: 'name', label: 'الاسم', type: 'text', required: true },
+              { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
+              { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
+              { key: 'governorate', label: 'المحافظة', type: 'governorate', required: false },
+              { key: 'summary', label: 'وصف الحالة', type: 'textarea', required: false },
+              { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
+            ],
+          },
+          {
+            key: 'educational', label: 'استشارة تعليمية', icon: 'book',
+            disclaimer: 'خدمة مجانية مقدمة من جمعية خواطر أحلى شباب.',
+            fields: [
+              { key: 'name', label: 'الاسم', type: 'text', required: true },
+              { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
+              { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
+              { key: 'age', label: 'العمر', type: 'number', required: false },
+              { key: 'educationLevel', label: 'المرحلة التعليمية', type: 'select', required: false, options: ['ابتدائي', 'إعدادي', 'ثانوي', 'جامعي'] },
+              { key: 'summary', label: 'تفاصيل الاستشارة', type: 'textarea', required: false },
+              { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
+            ],
+          },
+        ];
+      }
+      result.schemaVersion = 9;
+      current = 9;
+    }
+
+    if (current < 10) {
+      this.logger.log('CMS migration 9 → 10: normalise paymentMethods to Arabic id/group shape');
+      const methods = result.paymentMethods ?? [];
+      const LATIN_TO_ARABIC: Record<string, { id: string; group: string; description: string; availability: string; manual: boolean }> = {
+        card: { id: 'بطاقة بنكية', group: 'دفع إلكتروني', description: 'فيزا / ماستركارد — تأكيد فوري من بوابة الدفع', availability: 'متاحة', manual: false },
+        fawry: { id: 'فوري', group: 'دفع إلكتروني', description: 'ادفع بكود فوري من أقرب منفذ', availability: 'متاحة', manual: false },
+        instapay: { id: 'إنستاباي', group: 'تحويل بنكي', description: 'حوِّل عبر إنستاباي — يُعتمد بعد مراجعة الإدارة', availability: 'متاحة', manual: true },
+        vodafone_cash: { id: 'فودافون كاش', group: 'محفظة إلكترونية', description: 'الدفع عبر المحفظة الإلكترونية', availability: 'قيد التفعيل', manual: false },
+        bank_transfer: { id: 'تحويل بنكي', group: 'تحويل بنكي', description: 'تحويل على حساب الجمعية — يُعتمد بعد مراجعة الإدارة', availability: 'متاحة', manual: true },
+      };
+      const hasLatinKeys = methods.some((m: any) => m.key && LATIN_TO_ARABIC[m.key]);
+      if (hasLatinKeys) {
+        result.paymentMethods = methods.map((m: any) => {
+          const mapped = LATIN_TO_ARABIC[m.key];
+          return mapped ? { ...mapped } : m;
+        });
+      }
+      result.schemaVersion = 10;
+      current = 10;
+    }
+
+    // Future migrations go here (11, 12, ...)
 
     if (result.schemaVersion !== CMS_SCHEMA_VERSION) {
       this.logger.warn(

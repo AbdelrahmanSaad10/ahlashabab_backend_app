@@ -125,4 +125,4 @@ export const TAB_REMAPS: Record<string, string> = {
 };
 
 // CMS Schema version
-export const CMS_SCHEMA_VERSION = 8;
+export const CMS_SCHEMA_VERSION = 10;

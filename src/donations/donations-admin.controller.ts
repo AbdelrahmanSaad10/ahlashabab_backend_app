@@ -18,6 +18,8 @@ import {
 } from './dto/donation-filters.dto';
 import { DonationStatus } from '../common/constants/statuses';
 import { z } from 'zod';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiZodBody, ApiZodQuery } from '../common/swagger/api-zod-body.decorator';
 
 const allStatuses = Object.values(DonationStatus) as [string, ...string[]];
 
@@ -27,11 +29,15 @@ const UpdateDonationStatusSchema = z.object({
 
 type UpdateDonationStatusDto = z.infer<typeof UpdateDonationStatusSchema>;
 
+@ApiTags('Donations')
+@ApiBearerAuth('access-token')
 @Controller('admin/donations')
 @UseInterceptors(ActivityLogInterceptor)
 export class DonationsAdminController {
   constructor(private readonly donationsService: DonationsService) {}
 
+  @ApiOperation({ summary: 'List donations', description: 'Paginated. Requires donations:read.' })
+  @ApiZodQuery(DonationFiltersSchema)
   @Get()
   @RequirePermission('donations', 'read')
   findAll(
@@ -41,6 +47,11 @@ export class DonationsAdminController {
     return this.donationsService.findAll(filters);
   }
 
+  @ApiOperation({
+    summary: 'Update a donation status',
+    description: 'This is the manual-approval path for bank transfers and wallets. The acting admin is recorded in the activity log. Requires donations:write.',
+  })
+  @ApiZodBody(UpdateDonationStatusSchema)
   @Patch(':id/status')
   @RequirePermission('donations', 'write')
   updateStatus(

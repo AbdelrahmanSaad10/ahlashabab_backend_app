@@ -1,13 +1,19 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { Public } from '../common/decorators/public.decorator';
 import { PortfolioService } from './portfolio.service';
+import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiPaginationQuery } from '../common/swagger/api-pagination-query.decorator';
 
+@ApiTags('Portfolio')
 @Controller()
 export class PortfolioController {
   constructor(private readonly portfolioService: PortfolioService) {}
 
   // ── Projects ───────────────────────────────────
 
+  @ApiOperation({ summary: 'List published projects' })
+  @ApiQuery({ name: 'category', required: false })
+  @ApiPaginationQuery()
   @Public()
   @Get('projects')
   findAllProjects(
@@ -25,6 +31,7 @@ export class PortfolioController {
     });
   }
 
+  @ApiOperation({ summary: 'Get one project', description: 'Includes its stages, ordered.' })
   @Public()
   @Get('projects/:id')
   findProjectById(@Param('id') id: string) {
@@ -33,6 +40,9 @@ export class PortfolioController {
 
   // ── Cases ──────────────────────────────────────
 
+  @ApiOperation({ summary: 'List published humanitarian cases' })
+  @ApiQuery({ name: 'tag', required: false })
+  @ApiPaginationQuery()
   @Public()
   @Get('cases')
   findAllCases(
@@ -50,6 +60,7 @@ export class PortfolioController {
     });
   }
 
+  @ApiOperation({ summary: 'Get one case' })
   @Public()
   @Get('cases/:id')
   findCaseById(@Param('id') id: string) {
@@ -58,6 +69,7 @@ export class PortfolioController {
 
   // ── Consultants ────────────────────────────────
 
+  @ApiOperation({ summary: 'List consultants', description: 'Providers surfaced to the app for consultation booking.' })
   @Public()
   @Get('consultants')
   getConsultants() {
