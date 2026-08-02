@@ -111,30 +111,37 @@ export class CmsService {
   }
 
   /** Full replace of CMS state with schema version validation */
+  /**
+   * Full replace of the CMS state.
+   *
+   * A field the caller OMITS keeps whatever is stored, rather than being reset.
+   * Previously `ImportCmsSchema` defaulted every array to `[]` and this method
+   * wrote that default, so a payload missing `consultationTypes` silently
+   * replaced every consultation type with an empty array. An explicit `[]` still
+   * clears a collection — the difference is between "clear this" and "I did not
+   * mention this" (issue #7).
+   */
   async replaceState(state: any) {
     const migrated = this.migration.migrate(state);
+    const current = await this.getState();
+
+    const keep = <T>(incoming: T | undefined, stored: T): T =>
+      incoming === undefined ? stored : incoming;
+
+    const data = {
+      schemaVersion: migrated.schemaVersion ?? current.schemaVersion,
+      settingsJson: keep(migrated.settings, current.settingsJson as any),
+      menuJson: keep(migrated.menu, current.menuJson as any),
+      homeJson: keep(migrated.home, current.homeJson as any),
+      pagesJson: keep(migrated.pages, current.pagesJson as any),
+      paymentMethodsJson: keep(migrated.paymentMethods, current.paymentMethodsJson as any),
+      consultationsJson: keep(migrated.consultationTypes, current.consultationsJson as any),
+    };
 
     return this.prisma.cmsState.upsert({
       where: { id: 1 },
-      create: {
-        id: 1,
-        schemaVersion: migrated.schemaVersion,
-        settingsJson: migrated.settings ?? {},
-        menuJson: migrated.menu ?? [],
-        homeJson: migrated.home ?? [],
-        pagesJson: migrated.pages ?? [],
-        paymentMethodsJson: migrated.paymentMethods ?? [],
-        consultationsJson: migrated.consultationTypes ?? [],
-      },
-      update: {
-        schemaVersion: migrated.schemaVersion,
-        settingsJson: migrated.settings ?? {},
-        menuJson: migrated.menu ?? [],
-        homeJson: migrated.home ?? [],
-        pagesJson: migrated.pages ?? [],
-        paymentMethodsJson: migrated.paymentMethods ?? [],
-        consultationsJson: migrated.consultationTypes ?? [],
-      },
+      create: { id: 1, ...data },
+      update: data,
     });
   }
 
