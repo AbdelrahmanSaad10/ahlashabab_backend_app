@@ -14,11 +14,11 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script_stop: true
+          command_timeout: 10m
           script: |
             cd /var/www/ahlashabab-backend
             git pull origin main
-            npm ci --omit=dev
+            npm install
             npx prisma generate
             npx nest build
             npx prisma db push --skip-generate
