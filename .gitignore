@@ -8,3 +8,4 @@ uploads/
 *.md
 *.log
 *.txt
+portfolio.nginx.conf
