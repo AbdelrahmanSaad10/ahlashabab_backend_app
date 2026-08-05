@@ -26,6 +26,14 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api/v1');
 
+  // Prevent browsers/proxies from caching Swagger UI & JSON spec
+  app.use('/api/docs', (_req: any, res: any, next: any) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+  });
+
   // Swagger / OpenAPI
   const swaggerConfig = new DocumentBuilder()
     .setTitle('أحلى شباب API')
@@ -64,14 +72,6 @@ async function bootstrap() {
       tagsSorter: 'alpha',
     },
     customSiteTitle: 'أحلى شباب API Docs',
-  });
-
-  // Prevent browsers/proxies from caching Swagger UI & JSON spec
-  app.use('/api/docs', (_req: any, res: any, next: any) => {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    next();
   });
 
   // CORS
