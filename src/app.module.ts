@@ -29,6 +29,7 @@ import { CmsModule } from './cms/cms.module';
 import { ReportsModule } from './reports/reports.module';
 import { AdminModule } from './admin/admin.module';
 import { UploadModule } from './upload/upload.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -70,5 +71,6 @@ import { UploadModule } from './upload/upload.module';
     AdminModule,
     UploadModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}

@@ -52,6 +52,7 @@ async function bootstrap() {
     .addTag('Reports', 'Analytics & exports')
     .addTag('Admin', 'Roles & activity log')
     .addTag('Upload', 'Media upload & processing')
+    .addTag('Health', 'Health check & testing')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
