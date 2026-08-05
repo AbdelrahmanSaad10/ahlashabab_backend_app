@@ -27,12 +27,14 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
 
   // Prevent browsers/proxies from caching Swagger UI & JSON spec
-  app.use('/api/docs', (_req: any, res: any, next: any) => {
+  const noCache = (_req: any, res: any, next: any) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     next();
-  });
+  };
+  app.use('/api/docs', noCache);
+  app.use('/api/docs-json', noCache);
 
   // Swagger / OpenAPI
   const swaggerConfig = new DocumentBuilder()
