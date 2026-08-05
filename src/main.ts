@@ -66,6 +66,14 @@ async function bootstrap() {
     customSiteTitle: 'أحلى شباب API Docs',
   });
 
+  // Prevent browsers/proxies from caching Swagger UI & JSON spec
+  app.use('/api/docs', (_req: any, res: any, next: any) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+  });
+
   // CORS
   const origins = (config.get<string>('CORS_ORIGINS') ?? '')
     .split(',')
