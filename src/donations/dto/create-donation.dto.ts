@@ -2,6 +2,10 @@ import { z } from 'zod';
 
 export const CreateDonationSchema = z.object({
   donorName: z.string().min(2).max(100),
+  /** Optional links — what the donation is FOR. `raisedAmount` derives from these. */
+  caseId: z.string().uuid('معرّف الحالة غير صالح').optional(),
+  projectId: z.string().uuid('معرّف المشروع غير صالح').optional(),
+
   cause: z.string().min(1),
   amount: z.number().int().positive(),
   /**

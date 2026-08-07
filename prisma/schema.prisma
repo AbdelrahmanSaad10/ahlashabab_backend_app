@@ -58,7 +58,7 @@ model User {
   notificationPrefs    NotificationPreference[]
   deviceTokens         DeviceToken[]
   consultationRequests ConsultationRequest[]
-  refreshTokens        RefreshToken[]        @relation("UserRefreshTokens")
+  refreshTokens        RefreshToken[]           @relation("UserRefreshTokens")
 
   @@map("users")
 }
@@ -161,12 +161,12 @@ model Provider {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
-  schedules        ProviderSchedule[]
-  unavailableDates ProviderUnavailableDate[]
-  services         Service[]
-  bookings         Booking[]
-  adminUser              AdminUser?
-  consultationRequests   ConsultationRequest[]
+  schedules            ProviderSchedule[]
+  unavailableDates     ProviderUnavailableDate[]
+  services             Service[]
+  bookings             Booking[]
+  adminUser            AdminUser?
+  consultationRequests ConsultationRequest[]
 
   @@map("providers")
 }
@@ -195,18 +195,18 @@ model ProviderUnavailableDate {
 }
 
 model Service {
-  id               String          @id @default(uuid())
-  name             String
-  description      String?
-  categoryId       String          @map("category_id")
-  category         ServiceCategory @relation(fields: [categoryId], references: [id])
-  providerId       String          @map("provider_id")
-  provider         Provider        @relation(fields: [providerId], references: [id])
-  free             Boolean         @default(true)
-  requireNationalId Boolean        @default(false) @map("require_national_id")
-  active           Boolean         @default(true)
-  createdAt        DateTime        @default(now()) @map("created_at")
-  updatedAt        DateTime        @updatedAt @map("updated_at")
+  id                String          @id @default(uuid())
+  name              String
+  description       String?
+  categoryId        String          @map("category_id")
+  category          ServiceCategory @relation(fields: [categoryId], references: [id])
+  providerId        String          @map("provider_id")
+  provider          Provider        @relation(fields: [providerId], references: [id])
+  free              Boolean         @default(true)
+  requireNationalId Boolean         @default(false) @map("require_national_id")
+  active            Boolean         @default(true)
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
 
   formFields ServiceFormField[]
   bookings   Booking[]
@@ -278,6 +278,13 @@ model Donation {
   userId      String?  @map("user_id")
   user        User?    @relation(fields: [userId], references: [id])
   cause       String
+  /// What the donation was given for. `cause` is the free-text label on the
+  /// receipt; these are the actual links, and what `raisedAmount` derives from.
+  /// Optional — a general donation belongs to neither.
+  caseId      String?  @map("case_id")
+  case        Case?    @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  projectId   String?  @map("project_id")
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   amount      Int
   method      String
   recurring   Boolean  @default(false)
@@ -334,7 +341,8 @@ model Case {
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
-  updates CaseUpdate[]
+  updates  CaseUpdate[]
+  donations Donation[]
 
   @@index([tag])
   @@map("cases")
@@ -366,8 +374,9 @@ model Project {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  stages  ProjectStage[]
-  updates ProjectUpdate[]
+  stages    ProjectStage[]
+  updates   ProjectUpdate[]
+  donations Donation[]
 
   @@map("projects")
 }
@@ -399,12 +408,12 @@ model ProjectUpdate {
 // ============================================================
 
 model FoundationStat {
-  id        String @id @default(uuid())
-  key       String @unique
+  id        String  @id @default(uuid())
+  key       String  @unique
   value     String
   label     String
   icon      String?
-  sortOrder Int    @default(0) @map("sort_order")
+  sortOrder Int     @default(0) @map("sort_order")
 
   @@map("foundation_stats")
 }
@@ -502,10 +511,10 @@ model ContactMessage {
 }
 
 model ConsultationRequest {
-  id               String   @id @default(uuid())
-  reference        String   @unique
-  userId           String?  @map("user_id")
-  user             User?    @relation(fields: [userId], references: [id])
+  id               String    @id @default(uuid())
+  reference        String    @unique
+  userId           String?   @map("user_id")
+  user             User?     @relation(fields: [userId], references: [id])
   type             String
   name             String
   phone            String
@@ -513,17 +522,17 @@ model ConsultationRequest {
   email            String
   age              Int?
   governorate      String?
-  preferredChannel String?  @map("preferred_channel")
-  preferredTime    String?  @map("preferred_time")
+  preferredChannel String?   @map("preferred_channel")
+  preferredTime    String?   @map("preferred_time")
   summary          String?
-  extraFieldsJson  Json?    @map("extra_fields_json")
-  providerId       String?  @map("provider_id")
+  extraFieldsJson  Json?     @map("extra_fields_json")
+  providerId       String?   @map("provider_id")
   date             DateTime?
-  timeSlot         String?  @map("time_slot")
+  timeSlot         String?   @map("time_slot")
   provider         Provider? @relation(fields: [providerId], references: [id])
-  status           String   @default("جديد")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  status           String    @default("جديد")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   @@index([email])
   @@index([userId])

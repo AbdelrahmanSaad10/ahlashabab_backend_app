@@ -63,6 +63,9 @@ export class DonationsService {
         reference,
         donorName: dto.donorName,
         cause: dto.cause,
+        // The links `raisedAmount` derives from. `cause` stays the receipt label.
+        caseId: dto.caseId ?? null,
+        projectId: dto.projectId ?? null,
         amount: dto.amount,
         method: dto.method,
         recurring: dto.recurring,
@@ -207,9 +210,42 @@ export class DonationsService {
       });
     }
 
-    const updated = await this.prisma.donation.update({
-      where: { id },
-      data: { status },
+    /*
+     * Approving a donation is what moves the fundraising total the app shows.
+     *
+     * Nothing derived `raisedAmount` before: `donation.completed` fed only
+     * notifications, and a Donation carried a free-text `cause` with no link to
+     * a case. The status change and the credit happen in ONE transaction — a
+     * donation marked approved while its case total silently failed to move
+     * would be worse than either alone.
+     *
+     * The credit is an INCREMENT, not a recompute from scratch, so existing
+     * hand-entered totals survive and no backfill is needed: they become the
+     * starting point and new approvals add to them. `adminUpdateStatus` refuses
+     * transitions out of a final state, so a donation can only be credited once.
+     */
+    const becameComplete =
+      status === DonationStatus.COMPLETED && donation.status !== DonationStatus.COMPLETED;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.donation.update({ where: { id }, data: { status } });
+
+      if (becameComplete) {
+        if (row.caseId) {
+          await tx.case.update({
+            where: { id: row.caseId },
+            data: { raisedAmount: { increment: row.amount }, supporters: { increment: 1 } },
+          });
+        }
+        if (row.projectId) {
+          await tx.project.update({
+            where: { id: row.projectId },
+            data: { raisedAmount: { increment: row.amount }, supporters: { increment: 1 } },
+          });
+        }
+      }
+
+      return row;
     });
 
     this.logger.log(
