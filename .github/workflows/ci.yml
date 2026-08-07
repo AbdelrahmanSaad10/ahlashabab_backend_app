@@ -41,6 +41,10 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ahla_test?schema=public
       JWT_ACCESS_SECRET: ci-access-secret-long-enough
       JWT_REFRESH_SECRET: ci-refresh-secret-long-enough
+      # Throwaway value for the integration suite only — it signs and verifies
+      # its own callbacks. NOT the production secret, which lives in the server's
+      # environment and is required at boot there (see T-11).
+      WEBHOOK_SECRET: ci-webhook-secret-at-least-16-chars
 
     steps:
       - uses: actions/checkout@v4
