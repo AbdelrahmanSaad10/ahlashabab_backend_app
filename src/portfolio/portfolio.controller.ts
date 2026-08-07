@@ -35,7 +35,8 @@ export class PortfolioController {
   @Public()
   @Get('projects/:id')
   findProjectById(@Param('id') id: string) {
-    return this.portfolioService.findProjectById(id);
+    // Published-scoped: this route is public.
+    return this.portfolioService.findPublishedProjectById(id);
   }
 
   // ── Cases ──────────────────────────────────────
@@ -64,7 +65,8 @@ export class PortfolioController {
   @Public()
   @Get('cases/:id')
   findCaseById(@Param('id') id: string) {
-    return this.portfolioService.findCaseById(id);
+    // Published-scoped: this route is public.
+    return this.portfolioService.findPublishedCaseById(id);
   }
 
   // ── Consultants ────────────────────────────────

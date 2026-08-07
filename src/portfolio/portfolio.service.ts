@@ -61,6 +61,44 @@ export class PortfolioService {
     };
   }
 
+  /**
+   * Public detail lookups — these enforce `published`.
+   *
+   * `GET /portfolio/cases/:id` and `/projects/:id` are `@Public()` and used to
+   * call the unscoped finders below, so an unpublished item was fully readable
+   * by anyone holding its id. Ids are UUIDs, so it was not enumerable — but a
+   * case that had been published and then taken down stayed readable at its old
+   * link, which means "unpublish" was not a takedown. For humanitarian cases
+   * carrying beneficiary details, that is the difference between a privacy
+   * control and a label.
+   *
+   * The admin routes keep using the unscoped finders, so drafts remain editable.
+   */
+  async findPublishedCaseById(id: string) {
+    const item = await this.prisma.case.findFirst({
+      where: { id, published: true },
+      include: { updates: { orderBy: { createdAt: 'desc' } } },
+    });
+    if (!item) {
+      throw new NotFoundException('الحالة غير موجودة');
+    }
+    return item;
+  }
+
+  async findPublishedProjectById(id: string) {
+    const item = await this.prisma.project.findFirst({
+      where: { id, published: true },
+      include: {
+        stages: { orderBy: { sortOrder: 'asc' } },
+        updates: { orderBy: { createdAt: 'desc' } },
+      },
+    });
+    if (!item) {
+      throw new NotFoundException('المشروع غير موجود');
+    }
+    return item;
+  }
+
   async findCaseById(id: string) {
     const item = await this.prisma.case.findUnique({
       where: { id },
