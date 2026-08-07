@@ -60,11 +60,9 @@ export class CmsMigrationService {
       // so a fresh deploy or a CMS reset would have rendered no payment methods.
       // `manual: true` = waits on admin approval; false = waits on the gateway.
       result.paymentMethods = result.paymentMethods ?? [
-        { id: 'بطاقة بنكية', group: 'دفع إلكتروني', description: 'فيزا / ماستركارد — تأكيد فوري من بوابة الدفع', availability: 'متاحة', manual: false },
-        { id: 'فوري', group: 'دفع إلكتروني', description: 'ادفع بكود فوري من أقرب منفذ', availability: 'متاحة', manual: false },
-        { id: 'إنستاباي', group: 'تحويل بنكي', description: 'حوِّل عبر إنستاباي — يُعتمد بعد مراجعة الإدارة', availability: 'متاحة', manual: true },
-        { id: 'فودافون كاش', group: 'محفظة إلكترونية', description: 'الدفع عبر المحفظة الإلكترونية', availability: 'قيد التفعيل', manual: false },
-        { id: 'تحويل بنكي', group: 'تحويل بنكي', description: 'تحويل على حساب الجمعية — يُعتمد بعد مراجعة الإدارة', availability: 'متاحة', manual: true },
+        { id: 'تحويل بنكي', label: 'تحويل بنكي / إنستاباي', group: 'تحويل بنكي', description: 'حوِّل إلى حساب الجمعية في بنك CIB من أي تطبيق بنكي أو عبر إنستاباي.', availability: 'متاحة', manual: true, copyables: [{ label: 'اسم الحساب', value: 'khawaterahlashabab' }, { label: 'رقم الحساب', value: '100063461509' }], instructions: ['البنك: CIB — البنك التجاري الدولي', 'اسم الحساب: khawaterahlashabab', 'رقم الحساب: 100063461509', 'يمكنك التحويل من تطبيق البنك أو من إنستاباي على نفس الحساب.'] },
+        { id: 'فوري', label: 'فوري', group: 'دفع إلكتروني', description: 'ادفع من أقرب منفذ فوري باستخدام كود التبرع.', availability: 'متاحة', manual: true, copyables: [{ label: 'كود التبرع', value: '74000' }], instructions: ['توجّه إلى أقرب منفذ فوري.', 'اطلب خدمة التبرعات وأدخل كود التبرع: 74000', 'تأكد من ظهور الاسم: جمعية خواطر أحلى شباب'] },
+        { id: 'فودافون كاش', label: 'فودافون كاش', group: 'محفظة إلكترونية', description: 'تبرّع من محفظة فودافون كاش بكود التبرع أو عبر «ميجا خير».', availability: 'متاحة', manual: true, copyables: [{ label: 'كود التبرع', value: '#237*9*' }], instructions: ['اطلب كود التبرع من هاتفك: #237*9*', 'أو من تطبيق «أنا فودافون»: اختر التبرعات ثم «ميجا خير»، ثم جمعية خواطر أحلى شباب.'] },
       ];
       result.schemaVersion = 5;
       current = 5;
@@ -200,12 +198,25 @@ export class CmsMigrationService {
     if (current < 10) {
       this.logger.log('CMS migration 9 → 10: normalise paymentMethods to Arabic id/group shape');
       const methods = result.paymentMethods ?? [];
-      const LATIN_TO_ARABIC: Record<string, { id: string; group: string; description: string; availability: string; manual: boolean }> = {
-        card: { id: 'بطاقة بنكية', group: 'دفع إلكتروني', description: 'فيزا / ماستركارد — تأكيد فوري من بوابة الدفع', availability: 'متاحة', manual: false },
-        fawry: { id: 'فوري', group: 'دفع إلكتروني', description: 'ادفع بكود فوري من أقرب منفذ', availability: 'متاحة', manual: false },
-        instapay: { id: 'إنستاباي', group: 'تحويل بنكي', description: 'حوِّل عبر إنستاباي — يُعتمد بعد مراجعة الإدارة', availability: 'متاحة', manual: true },
-        vodafone_cash: { id: 'فودافون كاش', group: 'محفظة إلكترونية', description: 'الدفع عبر المحفظة الإلكترونية', availability: 'قيد التفعيل', manual: false },
-        bank_transfer: { id: 'تحويل بنكي', group: 'تحويل بنكي', description: 'تحويل على حساب الجمعية — يُعتمد بعد مراجعة الإدارة', availability: 'متاحة', manual: true },
+      const LATIN_TO_ARABIC: Record<
+        string,
+        {
+          id: string;
+          label?: string;
+          group: string;
+          description: string;
+          availability: string;
+          manual: boolean;
+          instructions?: string[];
+          copyables?: { label: string; value: string }[];
+        }
+      > = {
+        /* card is no longer offered — legacy CMS rows fold into the bank transfer card. */
+        card: { id: 'تحويل بنكي', label: 'تحويل بنكي / إنستاباي', group: 'تحويل بنكي', description: 'حوِّل إلى حساب الجمعية في بنك CIB من أي تطبيق بنكي أو عبر إنستاباي.', availability: 'متاحة', manual: true, copyables: [{ label: 'اسم الحساب', value: 'khawaterahlashabab' }, { label: 'رقم الحساب', value: '100063461509' }], instructions: ['البنك: CIB — البنك التجاري الدولي', 'اسم الحساب: khawaterahlashabab', 'رقم الحساب: 100063461509', 'يمكنك التحويل من تطبيق البنك أو من إنستاباي على نفس الحساب.'] },
+        fawry: { id: 'فوري', label: 'فوري', group: 'دفع إلكتروني', description: 'ادفع من أقرب منفذ فوري باستخدام كود التبرع.', availability: 'متاحة', manual: true, copyables: [{ label: 'كود التبرع', value: '74000' }], instructions: ['توجّه إلى أقرب منفذ فوري.', 'اطلب خدمة التبرعات وأدخل كود التبرع: 74000', 'تأكد من ظهور الاسم: جمعية خواطر أحلى شباب'] },
+        instapay: { id: 'تحويل بنكي', label: 'تحويل بنكي / إنستاباي', group: 'تحويل بنكي', description: 'حوِّل إلى حساب الجمعية في بنك CIB من أي تطبيق بنكي أو عبر إنستاباي.', availability: 'متاحة', manual: true, copyables: [{ label: 'اسم الحساب', value: 'khawaterahlashabab' }, { label: 'رقم الحساب', value: '100063461509' }], instructions: ['البنك: CIB — البنك التجاري الدولي', 'اسم الحساب: khawaterahlashabab', 'رقم الحساب: 100063461509', 'يمكنك التحويل من تطبيق البنك أو من إنستاباي على نفس الحساب.'] },
+        vodafone_cash: { id: 'فودافون كاش', label: 'فودافون كاش', group: 'محفظة إلكترونية', description: 'تبرّع من محفظة فودافون كاش بكود التبرع أو عبر «ميجا خير».', availability: 'متاحة', manual: true, copyables: [{ label: 'كود التبرع', value: '#237*9*' }], instructions: ['اطلب كود التبرع من هاتفك: #237*9*', 'أو من تطبيق «أنا فودافون»: اختر التبرعات ثم «ميجا خير»، ثم جمعية خواطر أحلى شباب.'] },
+        bank_transfer: { id: 'تحويل بنكي', label: 'تحويل بنكي / إنستاباي', group: 'تحويل بنكي', description: 'حوِّل إلى حساب الجمعية في بنك CIB من أي تطبيق بنكي أو عبر إنستاباي.', availability: 'متاحة', manual: true, copyables: [{ label: 'اسم الحساب', value: 'khawaterahlashabab' }, { label: 'رقم الحساب', value: '100063461509' }], instructions: ['البنك: CIB — البنك التجاري الدولي', 'اسم الحساب: khawaterahlashabab', 'رقم الحساب: 100063461509', 'يمكنك التحويل من تطبيق البنك أو من إنستاباي على نفس الحساب.'] },
       };
       const hasLatinKeys = methods.some((m: any) => m.key && LATIN_TO_ARABIC[m.key]);
       if (hasLatinKeys) {

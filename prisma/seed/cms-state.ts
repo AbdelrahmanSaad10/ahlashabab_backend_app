@@ -98,11 +98,9 @@ const DEFAULT_PAGES = [
 ];
 
 const DEFAULT_PAYMENT_METHODS = [
-  { id: 'بطاقة بنكية', group: 'دفع إلكتروني', description: 'فيزا / ماستركارد — تأكيد فوري من بوابة الدفع', availability: 'متاحة', manual: false },
-  { id: 'فوري', group: 'دفع إلكتروني', description: 'ادفع بكود فوري من أقرب منفذ', availability: 'متاحة', manual: false },
-  { id: 'إنستاباي', group: 'تحويل بنكي', description: 'حوِّل عبر إنستاباي — يُعتمد بعد مراجعة الإدارة', availability: 'متاحة', manual: true },
-  { id: 'فودافون كاش', group: 'محفظة إلكترونية', description: 'الدفع عبر المحفظة الإلكترونية', availability: 'قيد التفعيل', manual: false },
-  { id: 'تحويل بنكي', group: 'تحويل بنكي', description: 'تحويل على حساب الجمعية — يُعتمد بعد مراجعة الإدارة', availability: 'متاحة', manual: true },
+  { id: 'تحويل بنكي', label: 'تحويل بنكي / إنستاباي', group: 'تحويل بنكي', description: 'حوِّل إلى حساب الجمعية في بنك CIB من أي تطبيق بنكي أو عبر إنستاباي.', availability: 'متاحة', manual: true, copyables: [{ label: 'اسم الحساب', value: 'khawaterahlashabab' }, { label: 'رقم الحساب', value: '100063461509' }], instructions: ['البنك: CIB — البنك التجاري الدولي', 'اسم الحساب: khawaterahlashabab', 'رقم الحساب: 100063461509', 'يمكنك التحويل من تطبيق البنك أو من إنستاباي على نفس الحساب.'] },
+  { id: 'فوري', label: 'فوري', group: 'دفع إلكتروني', description: 'ادفع من أقرب منفذ فوري باستخدام كود التبرع.', availability: 'متاحة', manual: true, copyables: [{ label: 'كود التبرع', value: '74000' }], instructions: ['توجّه إلى أقرب منفذ فوري.', 'اطلب خدمة التبرعات وأدخل كود التبرع: 74000', 'تأكد من ظهور الاسم: جمعية خواطر أحلى شباب'] },
+  { id: 'فودافون كاش', label: 'فودافون كاش', group: 'محفظة إلكترونية', description: 'تبرّع من محفظة فودافون كاش بكود التبرع أو عبر «ميجا خير».', availability: 'متاحة', manual: true, copyables: [{ label: 'كود التبرع', value: '#237*9*' }], instructions: ['اطلب كود التبرع من هاتفك: #237*9*', 'أو من تطبيق «أنا فودافون»: اختر التبرعات ثم «ميجا خير»، ثم جمعية خواطر أحلى شباب.'] },
 ];
 
 const DEFAULT_CONSULTATION_TYPES = [

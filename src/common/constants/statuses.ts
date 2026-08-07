@@ -62,12 +62,20 @@ export const SponsorshipStatus = {
 } as const;
 
 // Donation methods
+/**
+ * Donation methods. Only BANK_TRANSFER (CIB / InstaPay), FAWRY and
+ * VODAFONE_CASH are offered — all are completed outside the app and approved
+ * by an admin. CARD and INSTAPAY are **legacy**: kept so historical rows and
+ * report filters still resolve, but rejected by `CreateDonationSchema`.
+ */
 export const DonationMethod = {
-  CARD: 'بطاقة بنكية',
   FAWRY: 'فوري',
-  INSTAPAY: 'إنستاباي',
   VODAFONE_CASH: 'فودافون كاش',
   BANK_TRANSFER: 'تحويل بنكي',
+  /** @deprecated legacy — not accepted for new donations */
+  CARD: 'بطاقة بنكية',
+  /** @deprecated legacy — folded into BANK_TRANSFER (same CIB account) */
+  INSTAPAY: 'إنستاباي',
 } as const;
 
 // Article categories
