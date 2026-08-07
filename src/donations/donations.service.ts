@@ -13,7 +13,26 @@ import { DonationStatus, DonationMethod } from '../common/constants/statuses';
 import { generateReference } from '../common/utils/reference.util';
 
 /** Manual payment methods that require admin review */
-const MANUAL_METHODS: string[] = [DonationMethod.BANK_TRANSFER, DonationMethod.INSTAPAY];
+/**
+ * Methods whose money arrives through an integrated payment gateway, so the
+ * donation waits on a callback rather than on an admin.
+ *
+ * **There is no gateway.** Every method the app offers — تحويل بنكي، فوري،
+ * فودافون كاش — is completed outside the app and approved by an admin, exactly
+ * as `DonationMethod`'s own comment says.
+ *
+ * This used to be expressed the other way round, as
+ * `MANUAL_METHODS = [BANK_TRANSFER, INSTAPAY]`, and was never updated when the
+ * payment methods were narrowed to the three the client approved. INSTAPAY is
+ * deprecated and cannot be created, while FAWRY and VODAFONE_CASH were missing —
+ * so donations by those two were created as «قيد التأكيد», *awaiting a gateway
+ * callback that can never arrive*. They never entered the admin's «قيد المراجعة»
+ * review queue, so real money could sit unapproved indefinitely.
+ *
+ * Stated as an allowlist of gateway methods instead: it is empty today, and any
+ * method added later defaults to admin review rather than to a silent limbo.
+ */
+const GATEWAY_METHODS: string[] = [];
 
 /** Final (terminal) donation states that must never be regressed */
 const FINAL_STATES: string[] = [DonationStatus.COMPLETED, DonationStatus.FAILED];
@@ -33,9 +52,9 @@ export class DonationsService {
    * from the payment method.
    */
   async create(dto: CreateDonationDto, userId?: string) {
-    const status = MANUAL_METHODS.includes(dto.method)
-      ? DonationStatus.PENDING_REVIEW
-      : DonationStatus.PENDING_CONFIRMATION;
+    const status = GATEWAY_METHODS.includes(dto.method)
+      ? DonationStatus.PENDING_CONFIRMATION
+      : DonationStatus.PENDING_REVIEW;
 
     const reference = generateReference('AS');
 
@@ -68,9 +87,30 @@ export class DonationsService {
   /**
    * Look up a donation by its human-readable reference code.
    */
+  /**
+   * The public receipt lookup. `GET /donations/:reference` is `@Public()`, so
+   * this returns a RECEIPT — not the row.
+   *
+   * It used to return the whole record, including `userId` (which links the
+   * donation to an account) and `gatewayTxId`. Neither belongs in something an
+   * unauthenticated caller can fetch: they are internal identifiers with no
+   * receipt purpose. The reference itself is now unguessable (see
+   * `reference.util.ts`), but defence in depth means not shipping fields the
+   * caller has no use for.
+   */
   async findByReference(reference: string) {
     const donation = await this.prisma.donation.findUnique({
       where: { reference },
+      select: {
+        reference: true,
+        donorName: true,
+        cause: true,
+        amount: true,
+        method: true,
+        status: true,
+        recurring: true,
+        createdAt: true,
+      },
     });
 
     if (!donation) {

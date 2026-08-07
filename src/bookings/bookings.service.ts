@@ -267,6 +267,14 @@ export class BookingsService {
   // Lookup by reference
   // ──────────────────────────────────────────────
 
+  /**
+   * Public guest lookup — `GET /bookings/:reference` is `@Public()`.
+   *
+   * `nationalId` is deliberately omitted: a national id number is the most
+   * sensitive field on this row and a guest checking their appointment has no
+   * need of it. The reference is now unguessable, but that is not a reason to
+   * hand out an identity document number to whoever holds the link.
+   */
   async findByReference(reference: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { reference },
@@ -283,7 +291,12 @@ export class BookingsService {
       });
     }
 
-    return booking;
+    // Dropped rather than `select`-ed so a future column is exposed only if
+    // someone adds it deliberately — and `nationalId` can never come back by
+    // accident. (Prisma's `omit` needs a preview flag this project has not enabled.)
+    const { nationalId, ...safe } = booking;
+    void nationalId;
+    return safe;
   }
 
   // ──────────────────────────────────────────────
