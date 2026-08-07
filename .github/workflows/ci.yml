@@ -18,6 +18,30 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    # A disposable PostgreSQL for the integration suite. It exists only for the
+    # life of this job, so the tests can create, mutate and delete freely — the
+    # one thing they must never do is touch a real database, which is why the
+    # specs also refuse a URL that looks like production.
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ahla_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ahla_test?schema=public
+      JWT_ACCESS_SECRET: ci-access-secret-long-enough
+      JWT_REFRESH_SECRET: ci-refresh-secret-long-enough
+
     steps:
       - uses: actions/checkout@v4
 
@@ -37,5 +61,15 @@ jobs:
       - name: Build (typecheck)
         run: npm run build
 
-      - name: Test
+      - name: Test (unit + e2e)
         run: npm run test:ci
+
+      # Applies the baselined migrations from T-01 to an empty database, which
+      # also re-proves on every push that they build the schema from scratch.
+      - name: Prepare the integration database
+        run: |
+          npx prisma migrate deploy
+          npx prisma db seed
+
+      - name: Test (integration — against a real database)
+        run: npm run test:int

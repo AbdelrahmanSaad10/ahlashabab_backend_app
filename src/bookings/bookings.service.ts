@@ -119,6 +119,30 @@ export class BookingsService {
   // Create booking
   // ──────────────────────────────────────────────
 
+  /**
+   * Runs the booking transaction at SERIALIZABLE and converts a Postgres
+   * serialization failure into the same SLOT_TAKEN conflict a sequential
+   * caller would receive. Retrying is deliberately NOT done: if the loser lost,
+   * the slot is gone, and a retry would only re-read the winner's row.
+   */
+  private async runBookingTransaction<T>(fn: (tx: any) => Promise<T>): Promise<T> {
+    try {
+      return await this.prisma.$transaction(fn, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    } catch (e: any) {
+      if (e?.code === 'P2034') {
+        throw new ConflictException({
+          error: {
+            code: 'SLOT_TAKEN',
+            message: 'هذا الموعد محجوز بالفعل، يرجى اختيار موعد آخر',
+          },
+        });
+      }
+      throw e;
+    }
+  }
+
   async create(dto: CreateBookingDto, userId?: string) {
     // Look up the service to get its provider
     const service = await this.prisma.service.findUnique({
@@ -150,8 +174,18 @@ export class BookingsService {
     const providerId = service.providerId;
     const bookingDate = new Date(dto.date);
 
-    // Run inside a serializable transaction to prevent double-booking
-    const booking = await this.prisma.$transaction(
+    /*
+     * Run inside a serializable transaction to prevent double-booking.
+     *
+     * SERIALIZABLE is the ONLY protection here — the schema has an index on
+     * [providerId, date] but no unique constraint on the slot. When Postgres
+     * detects the read-write anomaly between two simultaneous bookings it aborts
+     * the loser with a serialization failure, which Prisma surfaces as P2034.
+     * Untranslated, that reaches the client as a 500: the caller is told the
+     * server broke, when in fact the slot was simply taken a moment earlier.
+     * Map it to the same 409 the sequential path returns.
+     */
+    const booking = await this.runBookingTransaction(
       async (tx) => {
         // Check for slot conflict: same provider + date + time slot with non-cancelled status
         const conflict = await tx.booking.findFirst({
@@ -219,9 +253,6 @@ export class BookingsService {
             provider: { select: { id: true, name: true } },
           },
         });
-      },
-      {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       },
     );
 
