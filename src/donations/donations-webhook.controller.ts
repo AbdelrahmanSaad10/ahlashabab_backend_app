@@ -48,7 +48,8 @@ export class DonationsWebhookController {
     summary: 'Payment gateway callback',
     description:
       'Called by the payment provider, not by clients. Verifies HMAC-SHA256 signature via x-webhook-signature header. '
-      + 'Fails closed in production if WEBHOOK_SECRET is not set.',
+      + 'Fails closed whenever WEBHOOK_SECRET is not set, unless ALLOW_UNSIGNED_WEBHOOKS=true '
+      + 'is explicitly set outside production.',
   })
   @ApiZodBody(PaymentWebhookSchema, 'Payment webhook payload')
   @ApiHeader({ name: 'x-webhook-signature', required: false, description: 'HMAC-SHA256 hex digest of the JSON body' })
@@ -69,22 +70,36 @@ export class DonationsWebhookController {
   /**
    * This endpoint can mark a donation paid, so it fails CLOSED.
    *
-   * Verification previously ran only `if (secret)`, and WEBHOOK_SECRET is not set
-   * in the deployed environment — which left the route effectively public while
-   * looking protected. An unset secret is now a hard failure in production
-   * instead of a silent bypass. Outside production it is allowed through with a
-   * warning, so local work does not need a secret configured.
+   * Verification originally ran only `if (secret)`, which left the route
+   * effectively public while looking protected whenever the secret was absent.
+   * An unset secret is now a hard failure by default; skipping the check takes a
+   * deliberate ALLOW_UNSIGNED_WEBHOOKS=true, and production cannot opt in at all.
+   * `validateEnv` additionally refuses to boot production without a secret, so
+   * this 503 is the second line of defence rather than the first.
    */
   private verifySignature(body: PaymentWebhookDto, signature?: string): void {
     const secret = this.config.get<string>('WEBHOOK_SECRET');
 
     if (!secret) {
-      if (this.config.get<string>('NODE_ENV') === 'production') {
+      // Fail closed by DEFAULT, not merely outside production.
+      //
+      // This used to bypass verification whenever NODE_ENV !== 'production',
+      // and NODE_ENV defaults to 'development' when unset — so a deployment that
+      // forgot to set it (Docker/PM2/systemd all make this easy) would leave a
+      // route that can mark donations paid completely unauthenticated, while the
+      // logs showed only a warning. Skipping verification now requires deliberately
+      // setting ALLOW_UNSIGNED_WEBHOOKS=true, and production can never opt in.
+      const isProduction = this.config.get<string>('NODE_ENV') === 'production';
+      const allowUnsigned = this.config.get<boolean>('ALLOW_UNSIGNED_WEBHOOKS') === true;
+
+      if (isProduction || !allowUnsigned) {
         this.logger.error('WEBHOOK_SECRET is not configured — rejecting payment webhook');
         throw new ServiceUnavailableException('Webhook verification is not configured');
       }
+
       this.logger.warn(
-        'WEBHOOK_SECRET is not set — skipping signature check. Non-production only.',
+        'ALLOW_UNSIGNED_WEBHOOKS=true and no WEBHOOK_SECRET — skipping signature check. '
+        + 'Local development only; this must never be set in a deployed environment.',
       );
       return;
     }

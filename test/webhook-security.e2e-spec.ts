@@ -6,23 +6,27 @@ import { createHmac } from 'crypto';
 
 import { DonationsWebhookController } from '../src/donations/donations-webhook.controller';
 import { DonationsService } from '../src/donations/donations.service';
+import { validateEnv } from '../src/config/app.config';
 
 /**
  * `POST /webhooks/payment` can mark a donation paid, so it has to fail CLOSED.
  *
- * It previously verified the HMAC only `if (secret)` — and WEBHOOK_SECRET was not
- * set in the deployed environment, so the check was skipped entirely and the
- * route was effectively public while appearing protected. It also had no body
- * validation, so a malformed payload raised a 500 from inside handleWebhook.
+ * It originally verified the HMAC only `if (secret)`, so an unset secret skipped
+ * the check entirely and left the route public while appearing protected. It also
+ * had no body validation, so a malformed payload raised a 500 from inside
+ * handleWebhook. (The deployed environment does have a secret configured — an
+ * unsigned probe against production returns 401 — but the code must not depend
+ * on that remaining true.)
  *
- * Run twice: once with a secret configured, once without, since the interesting
- * behaviour is what happens when it is missing.
+ * The interesting behaviour is what happens when the secret is MISSING, so the
+ * suite covers every combination of NODE_ENV and the ALLOW_UNSIGNED_WEBHOOKS
+ * escape hatch, plus the boot-time guard that should stop production earlier.
  */
 
 const handled: unknown[] = [];
 const SECRET = 'test-webhook-secret';
 
-function buildModule(env: Record<string, string | undefined>) {
+function buildModule(env: Record<string, string | boolean | undefined>) {
   @Module({
     controllers: [DonationsWebhookController],
     providers: [
@@ -42,7 +46,7 @@ const sign = (body: unknown, secret = SECRET) =>
 
 const VALID = { gatewayTxId: 'tx-1', amount: 100, status: 'paid' };
 
-async function start(env: Record<string, string | undefined>) {
+async function start(env: Record<string, string | boolean | undefined>) {
   const app = await NestFactory.create(buildModule(env), { logger: false });
   await app.listen(0);
   const base = (await app.getUrl()).replace('[::1]', '127.0.0.1');
@@ -123,8 +127,31 @@ describe('payment webhook', () => {
       }
     });
 
-    it('allows it outside production, so local work needs no secret', async () => {
+    it('refuses when NODE_ENV is unset — the fail-open case this guard exists for', async () => {
+      // NODE_ENV defaults to 'development' when absent, so the old
+      // `NODE_ENV !== 'production'` bypass turned a forgotten env var into a
+      // fully public endpoint that can mark donations paid.
+      const { app, base } = await start({});
+      try {
+        expect((await post(base, VALID, sign(VALID))).status).toBe(503);
+        expect(handled).toHaveLength(0);
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('refuses in development too, unless the bypass is explicitly opted into', async () => {
       const { app, base } = await start({ NODE_ENV: 'development' });
+      try {
+        expect((await post(base, VALID)).status).toBe(503);
+        expect(handled).toHaveLength(0);
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('allows it with ALLOW_UNSIGNED_WEBHOOKS=true, so local work needs no secret', async () => {
+      const { app, base } = await start({ NODE_ENV: 'development', ALLOW_UNSIGNED_WEBHOOKS: true });
       try {
         expect((await post(base, VALID)).status).toBeLessThan(300);
         expect(handled).toHaveLength(1);
@@ -132,5 +159,53 @@ describe('payment webhook', () => {
         await app.close();
       }
     });
+
+    it('ignores ALLOW_UNSIGNED_WEBHOOKS in production — the escape hatch is not reachable there', async () => {
+      const { app, base } = await start({ NODE_ENV: 'production', ALLOW_UNSIGNED_WEBHOOKS: true });
+      try {
+        expect((await post(base, VALID, sign(VALID))).status).toBe(503);
+        expect(handled).toHaveLength(0);
+      } finally {
+        await app.close();
+      }
+    });
+  });
+});
+
+/**
+ * Boot-time guard: the controller's 503 is the last line of defence, but an
+ * operator should learn about a missing secret at deploy time, not when real
+ * payment callbacks start failing.
+ */
+describe('env validation', () => {
+  const BASE = {
+    DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
+    JWT_ACCESS_SECRET: 'access-secret-long-enough',
+    JWT_REFRESH_SECRET: 'refresh-secret-long-enough',
+  };
+
+  it('refuses to boot in production without WEBHOOK_SECRET', () => {
+    expect(() => validateEnv({ ...BASE, NODE_ENV: 'production' })).toThrow(
+      'Invalid environment configuration',
+    );
+  });
+
+  it('refuses a placeholder secret that is too short to be meaningful', () => {
+    expect(() =>
+      validateEnv({ ...BASE, NODE_ENV: 'production', WEBHOOK_SECRET: 'short' }),
+    ).toThrow('Invalid environment configuration');
+  });
+
+  it('boots in production with a real secret', () => {
+    const env = validateEnv({
+      ...BASE,
+      NODE_ENV: 'production',
+      WEBHOOK_SECRET: 'a-sufficiently-long-webhook-secret',
+    });
+    expect(env.WEBHOOK_SECRET).toBe('a-sufficiently-long-webhook-secret');
+  });
+
+  it('still boots in development without one, so local setup is unchanged', () => {
+    expect(() => validateEnv({ ...BASE })).not.toThrow();
   });
 });

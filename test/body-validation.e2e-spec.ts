@@ -117,7 +117,10 @@ describe('Zod pipe is attached to the body, not the whole handler', () => {
   });
 
   describe('POST /donations (OptionalAuth, so @CurrentUser is empty)', () => {
-    const valid = { donorName: 'اختبار', cause: 'دعم عام', amount: 100, method: 'إنستاباي' };
+    // Must stay one of the three client-approved methods in CreateDonationSchema.
+    // This fixture said 'إنستاباي' until the payment methods were narrowed, which
+    // silently turned this case into a 400 — see FIX_LOG (T-11 retest).
+    const valid = { donorName: 'اختبار', cause: 'دعم عام', amount: 100, method: 'تحويل بنكي' };
 
     it('accepts a valid body and passes it to the service', async () => {
       const res = await post('donations', valid);

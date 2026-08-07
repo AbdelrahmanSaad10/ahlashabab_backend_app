@@ -42,7 +42,37 @@ export const envSchema = z.object({
   REDIS_PORT: z.coerce.number().default(6379),
 
   WEBHOOK_SECRET: z.string().optional(),
-});
+
+  /**
+   * Escape hatch for local work only: lets the payment webhook accept unsigned
+   * calls when no WEBHOOK_SECRET is configured. It is ignored in production —
+   * see the superRefine below and `donations-webhook.controller.ts`.
+   */
+  ALLOW_UNSIGNED_WEBHOOKS: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
+})
+  /**
+   * Production must not start without a webhook secret.
+   *
+   * The controller already refuses to process unsigned callbacks, but a 503 at
+   * callback time means the operator finds out only once real payments are
+   * silently failing. Failing at boot moves the discovery to deploy time, which
+   * is the only moment it is cheap to fix.
+   */
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV !== 'production') return;
+    if (!env.WEBHOOK_SECRET || env.WEBHOOK_SECRET.length < 16) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['WEBHOOK_SECRET'],
+        message:
+          'WEBHOOK_SECRET is required in production and must be at least 16 characters. '
+          + 'Without it the payment webhook cannot verify that a callback came from the gateway.',
+      });
+    }
+  });
 
 export type EnvConfig = z.infer<typeof envSchema>;
 
