@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from '@prisma/client';
+import { preserve } from './seed-mode';
 
 const SERVICES = [
   {
@@ -72,14 +73,14 @@ export async function seedServices(prisma: PrismaClient) {
   for (const svc of SERVICES) {
     await prisma.service.upsert({
       where: { id: svc.id },
-      update: {
+      update: preserve({
         name: svc.name,
         description: svc.description,
         categoryId: svc.categoryId,
         providerId: svc.providerId,
         free: svc.free,
         requireNationalId: svc.requireNationalId,
-      },
+      }),
       create: svc,
     });
 

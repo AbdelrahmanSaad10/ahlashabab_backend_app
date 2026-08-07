@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { preserve } from './seed-mode';
 
 const CATEGORIES = [
   {
@@ -63,7 +64,7 @@ export async function seedCategories(prisma: PrismaClient) {
   for (const cat of CATEGORIES) {
     const parent = await prisma.serviceCategory.upsert({
       where: { id: `cat-${cat.sortOrder}` },
-      update: { name: cat.name, icon: cat.icon, description: cat.description, sortOrder: cat.sortOrder },
+      update: preserve({ name: cat.name, icon: cat.icon, description: cat.description, sortOrder: cat.sortOrder }),
       create: {
         id: `cat-${cat.sortOrder}`,
         name: cat.name,
@@ -78,7 +79,7 @@ export async function seedCategories(prisma: PrismaClient) {
       for (const child of cat.children) {
         await prisma.serviceCategory.upsert({
           where: { id: `cat-${cat.sortOrder}-${child.sortOrder}` },
-          update: { name: child.name, icon: child.icon, parentId: parent.id, sortOrder: child.sortOrder },
+          update: preserve({ name: child.name, icon: child.icon, parentId: parent.id, sortOrder: child.sortOrder }),
           create: {
             id: `cat-${cat.sortOrder}-${child.sortOrder}`,
             name: child.name,

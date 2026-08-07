@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { preserve } from './seed-mode';
 
 const FOUNDATION_STATS = [
   { key: 'beneficiaries', value: '1.2M+', label: 'مستفيد', icon: 'users', sortOrder: 0 },
@@ -64,7 +65,7 @@ export async function seedFoundation(prisma: PrismaClient) {
   for (const stat of FOUNDATION_STATS) {
     await prisma.foundationStat.upsert({
       where: { key: stat.key },
-      update: { value: stat.value, label: stat.label, icon: stat.icon, sortOrder: stat.sortOrder },
+      update: preserve({ value: stat.value, label: stat.label, icon: stat.icon, sortOrder: stat.sortOrder }),
       create: stat,
     });
   }

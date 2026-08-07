@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { preserve } from './seed-mode';
 
 const PROVIDERS = [
   {
@@ -68,14 +69,14 @@ export async function seedProviders(prisma: PrismaClient) {
   for (const p of PROVIDERS) {
     await prisma.provider.upsert({
       where: { id: p.id },
-      update: {
+      update: preserve({
         name: p.name,
         specialization: p.specialization,
         bio: p.bio,
         yearsExperience: p.yearsExperience,
         rating: p.rating,
         reviews: p.reviews,
-      },
+      }),
       create: {
         id: p.id,
         name: p.name,
@@ -93,11 +94,11 @@ export async function seedProviders(prisma: PrismaClient) {
         where: {
           providerId_weekday: { providerId: p.id, weekday: s.weekday },
         },
-        update: {
+        update: preserve({
           startTime: s.startTime,
           endTime: s.endTime,
           slotMinutes: s.slotMinutes,
-        },
+        }),
         create: {
           providerId: p.id,
           weekday: s.weekday,

@@ -5,6 +5,7 @@ import { DEFAULT_CONSULTATION_TYPES } from '../../src/cms/default-consultation-t
 // Was hardcoded to 10 and would have gone stale on the next bump, leaving the
 // seed writing a version the migration then had to repair on every read.
 import { CMS_SCHEMA_VERSION } from '../../src/common/constants/statuses';
+import { preserve } from './seed-mode';
 
 const DEFAULT_SETTINGS = {
   appName: 'أحلى شباب',
@@ -115,7 +116,7 @@ export async function seedCmsState(prisma: PrismaClient) {
 
   await prisma.cmsState.upsert({
     where: { id: 1 },
-    update: {
+    update: preserve({
       schemaVersion: CMS_SCHEMA_VERSION,
       settingsJson: DEFAULT_SETTINGS,
       menuJson: DEFAULT_MENU,
@@ -123,7 +124,7 @@ export async function seedCmsState(prisma: PrismaClient) {
       pagesJson: DEFAULT_PAGES,
       paymentMethodsJson: DEFAULT_PAYMENT_METHODS,
       consultationsJson: DEFAULT_CONSULTATION_TYPES,
-    },
+    }),
     create: {
       id: 1,
       schemaVersion: CMS_SCHEMA_VERSION,

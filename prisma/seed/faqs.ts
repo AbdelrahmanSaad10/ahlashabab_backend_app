@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { preserve } from './seed-mode';
 
 const FAQS = [
   {
@@ -49,7 +50,7 @@ export async function seedFaqs(prisma: PrismaClient) {
   for (let i = 0; i < FAQS.length; i++) {
     await prisma.faq.upsert({
       where: { id: `faq-${i}` },
-      update: { question: FAQS[i].question, answer: FAQS[i].answer, sortOrder: FAQS[i].sortOrder },
+      update: preserve({ question: FAQS[i].question, answer: FAQS[i].answer, sortOrder: FAQS[i].sortOrder }),
       create: { id: `faq-${i}`, ...FAQS[i] },
     });
   }

@@ -11,11 +11,13 @@ import { seedArticles } from './articles';
 import { seedFaqs } from './faqs';
 import { seedFoundation } from './foundation';
 import { seedCmsState } from './cms-state';
+import { logSeedMode } from './seed-mode';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Seeding database...\n');
+  logSeedMode();
 
   // Reference data (no FK deps)
   await seedGovernorates(prisma);

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { preserve } from './seed-mode';
 
 const ROLES = [
   {
@@ -68,7 +69,7 @@ export async function seedRoles(prisma: PrismaClient) {
   for (const role of ROLES) {
     await prisma.role.upsert({
       where: { name: role.name },
-      update: { permissionsJson: role.permissionsJson },
+      update: preserve({ permissionsJson: role.permissionsJson }),
       create: role,
     });
   }
