@@ -19,6 +19,14 @@ module.exports = {
   testRegex: '\\.(spec|e2e-spec)\\.ts$',
   transform: { '^.+\\.(t|j)s$': 'ts-jest' },
 
+  /*
+   * `uuid` v14 ships ESM only — no CJS build — so Jest's CommonJS runtime chokes
+   * on `export {}` the moment a spec pulls in a service that imports it. Nothing
+   * caught this before because no test reached that code. Transform it rather
+   * than stubbing the module, so the tests exercise the real thing.
+   */
+  transformIgnorePatterns: ['/node_modules/(?!(uuid)/)'],
+
   collectCoverageFrom: [
     'src/**/*.ts',
     // Wiring and generated surface, not logic worth a coverage number.
@@ -36,10 +44,10 @@ module.exports = {
    */
   coverageThreshold: {
     global: {
-      statements: 16,
-      branches: 15,
-      functions: 8,
-      lines: 15,
+      statements: 20,
+      branches: 19,
+      functions: 13,
+      lines: 20,
     },
   },
 };
