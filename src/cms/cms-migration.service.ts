@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CMS_SCHEMA_VERSION } from '../common/constants/statuses';
+import { DEFAULT_CONSULTATION_TYPES } from './default-consultation-types';
 
 const DEFAULT_MILESTONES = [
   { year: '2013', label: 'بداية الفكرة' },
@@ -229,7 +230,43 @@ export class CmsMigrationService {
       current = 10;
     }
 
-    // Future migrations go here (11, 12, ...)
+    if (current < 11) {
+      this.logger.log('CMS migration 10 → 11: consultation types to the app\'s Arabic keys + consent field');
+      /*
+       * Migration 8 → 9 seeded English keys (psychological, legal, family, social,
+       * educational) and typed the consent box as `checkbox`. The app keys its
+       * consultation routes in Arabic, and renders `checkbox` from `options` —
+       * which the consent field does not have — so an API-driven form would have
+       * shown a REQUIRED agreement with nothing to tick.
+       *
+       * That block is left untouched on purpose: a migration already applied is
+       * history, and editing it would not repair the rows it produced. This step
+       * repairs them.
+       *
+       * Replace only when the stored types are not already canonical, so a
+       * deliberate dashboard edit to a correct set is never clobbered.
+       */
+      const types = result.consultationTypes ?? [];
+      const canonicalKeys = new Set(DEFAULT_CONSULTATION_TYPES.map((t) => t.key));
+      const isCanonical =
+        types.length === DEFAULT_CONSULTATION_TYPES.length &&
+        types.every(
+          (t: any) =>
+            canonicalKeys.has(t?.key) &&
+            (t?.fields ?? []).some((f: any) => f?.type === 'consent'),
+        );
+
+      if (!isCanonical) {
+        result.consultationTypes = DEFAULT_CONSULTATION_TYPES.map((t) => ({
+          ...t,
+          fields: t.fields.map((f) => ({ ...f })),
+        }));
+      }
+      result.schemaVersion = 11;
+      current = 11;
+    }
+
+    // Future migrations go here (12, 13, ...)
 
     // Runs on EVERY call, deliberately NOT gated on a version.
     //

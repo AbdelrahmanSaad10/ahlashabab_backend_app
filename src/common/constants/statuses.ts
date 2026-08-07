@@ -133,4 +133,4 @@ export const TAB_REMAPS: Record<string, string> = {
 };
 
 // CMS Schema version
-export const CMS_SCHEMA_VERSION = 10;
+export const CMS_SCHEMA_VERSION = 11;

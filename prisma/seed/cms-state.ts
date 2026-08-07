@@ -1,4 +1,10 @@
 import { PrismaClient } from '@prisma/client';
+// Single source of truth, shared with the CMS migration — see that file for why
+// the keys are Arabic and the consent field is typed `consent` (T-07).
+import { DEFAULT_CONSULTATION_TYPES } from '../../src/cms/default-consultation-types';
+// Was hardcoded to 10 and would have gone stale on the next bump, leaving the
+// seed writing a version the migration then had to repair on every read.
+import { CMS_SCHEMA_VERSION } from '../../src/common/constants/statuses';
 
 const DEFAULT_SETTINGS = {
   appName: 'أحلى شباب',
@@ -103,83 +109,6 @@ const DEFAULT_PAYMENT_METHODS = [
   { id: 'فودافون كاش', label: 'فودافون كاش', group: 'محفظة إلكترونية', description: 'تبرّع من محفظة فودافون كاش بكود التبرع أو عبر «ميجا خير».', availability: 'متاحة', manual: true, copyables: [{ label: 'كود التبرع', value: '#237*9*' }], instructions: ['اطلب كود التبرع من هاتفك: #237*9*', 'أو من تطبيق «أنا فودافون»: اختر التبرعات ثم «ميجا خير»، ثم جمعية خواطر أحلى شباب.'] },
 ];
 
-const DEFAULT_CONSULTATION_TYPES = [
-  {
-    key: 'psychological',
-    label: 'استشارة نفسية',
-    icon: 'brain',
-    disclaimer: 'هذه الخدمة لا تغني عن زيارة طبيب متخصص في الحالات الطارئة.',
-    fields: [
-      { key: 'name', label: 'الاسم', type: 'text', required: true },
-      { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
-      { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
-      { key: 'age', label: 'العمر', type: 'number', required: false },
-      { key: 'gender', label: 'النوع', type: 'select', required: false, options: ['ذكر', 'أنثى'] },
-      { key: 'preferredChannel', label: 'وسيلة التواصل المفضلة', type: 'select', required: false, options: ['هاتف', 'واتساب', 'حضوري'] },
-      { key: 'preferredTime', label: 'الوقت المفضل', type: 'select', required: false, options: ['صباحاً', 'ظهراً', 'مساءً'] },
-      { key: 'summary', label: 'ملخص المشكلة', type: 'textarea', required: false },
-      { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
-    ],
-  },
-  {
-    key: 'legal',
-    label: 'استشارة قانونية',
-    icon: 'scale',
-    disclaimer: 'هذه الاستشارة استرشادية ولا تمثل رأياً قانونياً ملزماً.',
-    fields: [
-      { key: 'name', label: 'الاسم', type: 'text', required: true },
-      { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
-      { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
-      { key: 'caseType', label: 'نوع القضية', type: 'select', required: true, options: ['أحوال شخصية', 'قضايا عمالية', 'نزاعات مالية', 'أخرى'] },
-      { key: 'summary', label: 'تفاصيل القضية', type: 'textarea', required: true },
-      { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
-    ],
-  },
-  {
-    key: 'family',
-    label: 'استشارة أسرية',
-    icon: 'users',
-    disclaimer: 'جميع المعلومات سرية ولا يتم مشاركتها مع أي طرف.',
-    fields: [
-      { key: 'name', label: 'الاسم', type: 'text', required: true },
-      { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
-      { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
-      { key: 'familySize', label: 'عدد أفراد الأسرة', type: 'number', required: false },
-      { key: 'preferredChannel', label: 'وسيلة التواصل المفضلة', type: 'select', required: false, options: ['هاتف', 'واتساب', 'حضوري'] },
-      { key: 'summary', label: 'وصف المشكلة', type: 'textarea', required: false },
-      { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
-    ],
-  },
-  {
-    key: 'social',
-    label: 'استشارة اجتماعية',
-    icon: 'home',
-    disclaimer: 'خدمة مجانية مقدمة من جمعية خواطر أحلى شباب.',
-    fields: [
-      { key: 'name', label: 'الاسم', type: 'text', required: true },
-      { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
-      { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
-      { key: 'governorate', label: 'المحافظة', type: 'governorate', required: false },
-      { key: 'summary', label: 'وصف الحالة', type: 'textarea', required: false },
-      { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
-    ],
-  },
-  {
-    key: 'educational',
-    label: 'استشارة تعليمية',
-    icon: 'book',
-    disclaimer: 'خدمة مجانية مقدمة من جمعية خواطر أحلى شباب.',
-    fields: [
-      { key: 'name', label: 'الاسم', type: 'text', required: true },
-      { key: 'phone', label: 'رقم الهاتف', type: 'phone', required: true },
-      { key: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
-      { key: 'age', label: 'العمر', type: 'number', required: false },
-      { key: 'educationLevel', label: 'المرحلة التعليمية', type: 'select', required: false, options: ['ابتدائي', 'إعدادي', 'ثانوي', 'جامعي'] },
-      { key: 'summary', label: 'تفاصيل الاستشارة', type: 'textarea', required: false },
-      { key: 'consent', label: 'أوافق على سياسة الخصوصية وشروط الاستخدام', type: 'checkbox', required: true },
-    ],
-  },
-];
 
 export async function seedCmsState(prisma: PrismaClient) {
   console.log('  Seeding CMS state...');
@@ -187,7 +116,7 @@ export async function seedCmsState(prisma: PrismaClient) {
   await prisma.cmsState.upsert({
     where: { id: 1 },
     update: {
-      schemaVersion: 10,
+      schemaVersion: CMS_SCHEMA_VERSION,
       settingsJson: DEFAULT_SETTINGS,
       menuJson: DEFAULT_MENU,
       homeJson: DEFAULT_HOME,
@@ -197,7 +126,7 @@ export async function seedCmsState(prisma: PrismaClient) {
     },
     create: {
       id: 1,
-      schemaVersion: 10,
+      schemaVersion: CMS_SCHEMA_VERSION,
       settingsJson: DEFAULT_SETTINGS,
       menuJson: DEFAULT_MENU,
       homeJson: DEFAULT_HOME,
@@ -207,5 +136,5 @@ export async function seedCmsState(prisma: PrismaClient) {
     },
   });
 
-  console.log('  ✓ CMS state (schema v10)');
+  console.log(`  ✓ CMS state (schema v${CMS_SCHEMA_VERSION})`);
 }

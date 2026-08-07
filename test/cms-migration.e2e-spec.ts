@@ -75,6 +75,79 @@ describe('CMS migrations', () => {
     });
   });
 
+
+  /*
+   * 10 -> 11: consultation types. This is the step T-07 added, and it exists
+   * precisely because editing 8 -> 9 could not have repaired the rows that step
+   * already wrote on deployments past it.
+   */
+  describe('10 -> 11 consultation types', () => {
+    const legacy = () => ({
+      schemaVersion: 10,
+      consultationTypes: [
+        {
+          key: 'psychological',
+          label: 'استشارة نفسية',
+          fields: [
+            { key: 'name', label: 'الاسم', type: 'text', required: true },
+            { key: 'consent', label: 'أوافق', type: 'checkbox', required: true },
+          ],
+        },
+        { key: 'legal', label: 'استشارة قانونية', fields: [] },
+      ],
+    });
+
+    it('replaces the English keys with the five the app routes by', () => {
+      const out = migrate(legacy());
+      expect(out.consultationTypes.map((t: any) => t.key)).toEqual([
+        'نفسية', 'دينية', 'طبية', 'أسرية', 'أعمال',
+      ]);
+    });
+
+    it('types the consent box as `consent`, not `checkbox`', () => {
+      // A `checkbox` renders its choices from `options`; the consent field has
+      // none, so the old shape was a REQUIRED agreement with nothing to tick.
+      const out = migrate(legacy());
+      for (const t of out.consultationTypes) {
+        const consent = t.fields.find((f: any) => f.key === 'consent');
+        expect(consent).toBeDefined();
+        expect(consent.type).toBe('consent');
+        expect(consent.required).toBe(true);
+      }
+    });
+
+    it('gives every choice field options, so no question is unanswerable', () => {
+      const out = migrate(legacy());
+      for (const t of out.consultationTypes) {
+        for (const f of t.fields) {
+          if (['radio', 'checkbox', 'multiselect'].includes(f.type)) {
+            expect(Array.isArray(f.options) && f.options.length).toBeTruthy();
+          }
+        }
+      }
+    });
+
+    it('keeps a disclaimer on every type', () => {
+      const out = migrate(legacy());
+      expect(out.consultationTypes.every((t: any) => !!t.disclaimer)).toBe(true);
+    });
+
+    it('leaves an already-canonical set alone, so a deliberate edit is not clobbered', () => {
+      const first = migrate(legacy());
+      const edited = JSON.parse(JSON.stringify(first));
+      edited.schemaVersion = 10;                        // force the step to re-run
+      edited.consultationTypes[0].label = 'اسم عدّله المسؤول';
+      const out = migrate(edited);
+      expect(out.consultationTypes[0].label).toBe('اسم عدّله المسؤول');
+    });
+
+    it('repairs a state that never had consultation types at all', () => {
+      const out = migrate({ schemaVersion: 0, settings: {} });
+      expect(out.consultationTypes).toHaveLength(5);
+      expect(out.schemaVersion).toBe(CMS_SCHEMA_VERSION);
+    });
+  });
+
   it('is idempotent — migrating an already-current state changes nothing', () => {
     const once = migrate({ schemaVersion: 0, settings: {} });
     const twice = migrate(JSON.parse(JSON.stringify(once)));

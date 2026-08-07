@@ -63,7 +63,7 @@ export class CmsConsultationsController {
   @Delete(':key')
   @RequirePermission('cms', 'write')
   @ApiOperation({ summary: 'Delete a consultation type' })
-  @ApiParam({ name: 'key', example: 'psychological', description: 'URL-encode Arabic keys' })
+  @ApiParam({ name: 'key', example: 'نفسية', description: 'Arabic consultation key — URL-encode it' })
   @ApiOkResponse({ type: ConsultationTypeDto, description: 'The removed type' })
   deleteConsultationType(@Param('key') key: string) {
     return this.cmsService.deleteConsultationType(key);
