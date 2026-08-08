@@ -34,7 +34,7 @@ const prismaCli = (url: string, args: string[]) =>
     env: { ...process.env, DATABASE_URL: url },
   });
 
-/** Reads the two facts the script decides on, straight from the database. */
+/** Reads the facts the script decides on, straight from the database. */
 async function inspect(url: string) {
   const prisma = new PrismaClient({ datasources: { db: { url } } });
   try {
@@ -43,9 +43,38 @@ async function inspect(url: string) {
     );
     const [{ count }] = await prisma.$queryRawUnsafe<any[]>(
       `SELECT count(*)::int AS count FROM information_schema.tables
-        WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
+        WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+          AND table_name <> '_prisma_migrations'`,
     );
-    return { hasMigrationsTable: present === true, tableCount: Number(count) };
+    let applied = 0;
+    if (present === true) {
+      const [{ n }] = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT count(*)::int AS n FROM _prisma_migrations
+          WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`,
+      );
+      applied = Number(n);
+    }
+    return { hasMigrationsTable: present === true, tableCount: Number(count), applied };
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+/** Prisma's bookkeeping table, empty — created by a `migrate` command that got no further. */
+async function createEmptyMigrationsTable(url: string) {
+  const prisma = new PrismaClient({ datasources: { db: { url } } });
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS _prisma_migrations (
+        id                  VARCHAR(36) PRIMARY KEY NOT NULL,
+        checksum            VARCHAR(64) NOT NULL,
+        finished_at         TIMESTAMPTZ,
+        migration_name      VARCHAR(255) NOT NULL,
+        logs                TEXT,
+        rolled_back_at      TIMESTAMPTZ,
+        started_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+        applied_steps_count INTEGER NOT NULL DEFAULT 0
+      )`);
   } finally {
     await prisma.$disconnect();
   }
@@ -112,7 +141,50 @@ describe("a database created with 'db push' — production's actual state", () =
     expect(await inspect(cluster.url)).toEqual(before);
   }, 120_000);
 
-  it('proceeds normally once the baseline has been recorded', async () => {
+  it('is still refused when an EMPTY _prisma_migrations table exists', async () => {
+    /*
+     * The state that broke the first deploy of this script.
+     *
+     * It decided on whether `_prisma_migrations` existed, and production had the
+     * table with no rows in it — left by some earlier `migrate` command. The
+     * script read that as "already baselined", ran `migrate deploy`, and Prisma
+     * tried to CREATE TABLE governorates on top of the live schema.
+     *
+     * A migrations table is not a baselined database.
+     */
+    await createEmptyMigrationsTable(cluster.url);
+    const before = await inspect(cluster.url);
+    expect(before.hasMigrationsTable).toBe(true);
+    expect(before.applied).toBe(0);
+
+    const result = applySchema(cluster.url);
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}${result.stderr}`).toContain('one-time baseline');
+    expect(await inspect(cluster.url)).toEqual(before);
+  }, 120_000);
+
+  it('is refused with recovery instructions when a migration is recorded FAILED', async () => {
+    // Exactly what production ended up in: an empty migrations table, then a
+    // `migrate deploy` that failed on its first statement and left a failed row.
+    const deploy = prismaCli(cluster.url, ['migrate', 'deploy']);
+    expect(deploy.status).not.toBe(0);
+    expect(`${deploy.stdout}${deploy.stderr}`).toContain('P3018');
+
+    const result = applySchema(cluster.url);
+    expect(result.status).toBe(1);
+
+    const output = `${result.stdout}${result.stderr}`;
+    expect(output).toContain('recorded as FAILED');
+    // The command that clears it — without this the deploy just repeats the
+    // failure forever, which is the trap the first version walked into.
+    expect(output).toContain('migrate resolve --rolled-back 0_init');
+    expect(output).toContain('migrate resolve --applied 0_init');
+  }, 120_000);
+
+  it('proceeds normally once the failure is cleared and the baseline recorded', async () => {
+    const rolledBack = prismaCli(cluster.url, ['migrate', 'resolve', '--rolled-back', '0_init']);
+    expect(rolledBack.status).toBe(0);
+
     for (const name of ['0_init', '20260807211405_donation_case_project_links']) {
       const resolved = prismaCli(cluster.url, ['migrate', 'resolve', '--applied', name]);
       expect(resolved.status).toBe(0);

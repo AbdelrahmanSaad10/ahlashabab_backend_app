@@ -31,6 +31,12 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 10m
           script: |
+            # Without this the script runs every line regardless. A failing
+            # schema step was followed by the seed and `pm2 restart`, and the
+            # workflow reported success — the schema failure was visible only by
+            # reading the log. Any step failing now stops the deploy and turns it
+            # red.
+            set -euo pipefail
             cd /var/www/ahlashabab-backend
             git pull origin main
             npm install

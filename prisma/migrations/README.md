@@ -45,13 +45,37 @@ and decides:
 
 | State | Action |
 |---|---|
-| `_prisma_migrations` exists | `prisma migrate deploy` — the normal path |
-| No migrations table, no tables | `prisma migrate deploy` — a fresh database applies the baseline |
-| No migrations table, tables present | **Stops.** Prints the commands above and exits non-zero **without changing the schema** |
+| A migration recorded **FAILED** | **Stops.** Prints the recovery commands below |
+| No **applied** migrations, tables present | **Stops.** Prints the baseline commands above |
+| No applied migrations, no tables | `prisma migrate deploy` — a fresh database applies the baseline |
+| Otherwise | `prisma migrate deploy` — the normal path |
 
-The third row is production today. Failing the deploy there is deliberate: a deploy that cannot
-apply its schema must not go on to restart the application, and it must certainly not fall back to
-`db push`.
+Failing the deploy is deliberate: a deploy that cannot apply its schema must not go on to restart the
+application, and must certainly not fall back to `db push`. `deploy.yml` sets `set -euo pipefail` so
+that actually stops it — without it the workflow carried on to seed and restart, and reported success.
+
+> **"Has a migrations table" is not "is baselined."** The first version of this script decided on
+> whether `_prisma_migrations` existed. Production had the table with **no rows**, so the script took
+> the deploy path and Prisma tried to `CREATE TABLE governorates` on top of the live schema. Nothing
+> was lost — PostgreSQL runs each migration in a transaction and it failed on the first statement —
+> but it recorded `0_init` as failed, which is the state below.
+
+## Recovering a FAILED migration
+
+Prisma blocks every later migration until a failed attempt is cleared (`P3018`), and re-running the
+deploy only repeats it. **Check the schema first.** When the migration failed because the objects
+already existed, it left no trace and can be marked rolled back:
+
+```bash
+npx prisma migrate resolve --rolled-back 0_init
+# then baseline as above
+npx prisma migrate resolve --applied 0_init
+npx prisma migrate resolve --applied 20260807211405_donation_case_project_links
+npx prisma migrate status
+```
+
+`--rolled-back` asserts the migration left nothing behind. If it had partially applied, that assertion
+is false and the next migration runs against a schema nobody has described.
 
 Verified on throwaway clusters in `test/integration/apply-schema.int-spec.ts`, including reproducing
 the P3005 failure that a naive switch to `migrate deploy` would have shipped.
