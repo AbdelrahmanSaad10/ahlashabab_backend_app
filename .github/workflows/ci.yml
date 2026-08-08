@@ -65,15 +65,17 @@ jobs:
       - name: Build (typecheck)
         run: npm run build
 
-      - name: Test (unit + e2e)
-        run: npm run test:ci
-
       # Applies the baselined migrations from T-01 to an empty database, which
       # also re-proves on every push that they build the schema from scratch.
+      # Must run BEFORE the tests now: the single `test:ci` invocation includes
+      # the integration project, which needs the schema in place.
       - name: Prepare the integration database
         run: |
           npx prisma migrate deploy
           npx prisma db seed
 
-      - name: Test (integration — against a real database)
-        run: npm run test:int
+      # One run, both projects, ONE merged coverage number. Split runs reported
+      # coverage over the unit suite alone, so integration-covered code read as
+      # uncovered and adding tests made the figure go down (T-21).
+      - name: Test (unit + e2e + integration, merged coverage)
+        run: npm run test:ci
