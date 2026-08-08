@@ -1,0 +1,87 @@
+name: Migration baseline (manual)
+
+# A one-off, manually-triggered job to get production's migration history back
+# into a usable state, over the SSH connection the deploy already uses.
+#
+# Background: production's schema was built with `prisma db push`, so it had no
+# migration history. A `migrate deploy` then tried to apply the baseline on top of
+# the live schema and failed on its first statement — inside a transaction, so
+# nothing was applied — leaving `0_init` recorded as FAILED. Prisma blocks every
+# later migration until that is cleared (P3018), so deploys now stop at the schema
+# step, changing nothing.
+#
+# Two modes, and `check` is the default so a mis-click cannot write anything:
+#
+#   check    read-only. Reports the migration status and DIFFS the live schema
+#            against prisma/schema.prisma. An empty diff is the evidence that
+#            `resolve --rolled-back` is truthful — i.e. that the failed migration
+#            really did leave nothing behind.
+#
+#   resolve  writes Prisma's bookkeeping only: clears the failed attempt and
+#            records both migrations as already applied. Executes NO SQL against
+#            the application tables.
+#
+# Run `check` first and read the output. Only run `resolve` if the diff is empty.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check (read-only) or resolve (writes migration bookkeeping)'
+        required: true
+        default: check
+        type: choice
+        options:
+          - check
+          - resolve
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run on the server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 5m
+          envs: MODE
+          script: |
+            set -uo pipefail
+            cd /var/www/ahlashabab-backend
+
+            echo "── migration status ─────────────────────────────────────────"
+            npx prisma migrate status || true
+
+            echo
+            echo "── drift: live schema vs prisma/schema.prisma ───────────────"
+            # --from-schema-datasource reads the connection string out of the
+            # schema's datasource block, so the URL is never named on a command
+            # line that gets echoed into a public workflow log. Output is SQL.
+            # Empty means the live schema already matches the migrations, which
+            # is what makes `resolve --rolled-back` an honest statement.
+            npx prisma migrate diff \
+              --from-schema-datasource prisma/schema.prisma \
+              --to-schema-datamodel prisma/schema.prisma \
+              --script
+            echo "── end of diff (nothing above = no drift) ───────────────────"
+
+            if [ "$MODE" != "resolve" ]; then
+              echo
+              echo "check mode — nothing was written."
+              exit 0
+            fi
+
+            echo
+            echo "── resolving ────────────────────────────────────────────────"
+            set -e
+            npx prisma migrate resolve --rolled-back 0_init
+            npx prisma migrate resolve --applied 0_init
+            npx prisma migrate resolve --applied 20260807211405_donation_case_project_links
+
+            echo
+            echo "── status after ─────────────────────────────────────────────"
+            npx prisma migrate status
+        env:
+          MODE: ${{ inputs.mode }}
