@@ -2,7 +2,48 @@
 
 Backend requirements for **جمعية خواطر أحلى شباب**, derived from the Technical Offer (§5–§8) and the already-built frontend (`mobile/` app + `dashboard/`). Every entity and endpoint below maps to a real screen or module that already consumes it via mock data in `@ahla/shared` — the job of the backend is to replace those mocks with a real REST API + database, changing nothing about the UI contracts.
 
-> Status: **not started** (deferred). This document is the source of truth for what to build. The frontend is a demo on `@ahla/shared` mock data (app **v1.4.0**).
+> ## Status — 2026-08-08: BUILT AND RUNNING (this repo)
+>
+> This line previously read *"not started (deferred)"* — inside the repository where the backend is
+> implemented and deployed. Correcting it.
+>
+> Live at `https://portfolio.27lashabab.com/api/v1` (Swagger `/api/docs`): NestJS 10 + Prisma +
+> PostgreSQL, 39 controllers / **143 routes** / 38 models. The clients are wired: the mobile app
+> (**v1.6.0**) does real email-OTP login, reads `/me/*` and records donations; the dashboard reads
+> and writes every screen.
+>
+> ### Running it
+>
+> ```bash
+> npm ci
+> npx prisma generate
+> npx prisma migrate deploy      # builds the schema from empty; 0_init is the baseline
+> npx prisma db seed
+> npm run start:dev
+> ```
+>
+> ### Tests — 192, in one run
+>
+> ```bash
+> npm test            # unit + e2e, no database needed
+> npm run test:int    # integration, DATABASE_URL required
+> npm run test:cov    # BOTH, single merged coverage report (~54%)
+> ```
+>
+> CI (`.github/workflows/ci.yml`) spins up a disposable `postgres:15`, applies the migrations from
+> empty — re-proving on every push that they work — seeds, and runs everything.
+>
+> ### Where this spec and the code disagree, the code wins
+>
+> - **Payment methods are three**: تحويل بنكي / فوري / فودافون كاش. `بطاقة بنكية` and `إنستاباي` are
+>   legacy and rejected for new donations.
+> - **No payment gateway, by client instruction** — `GATEWAY_METHODS` is empty and every donation is
+>   created «قيد المراجعة».
+> - **Consultation types are keyed in Arabic**, and consent is a `consent`-typed field.
+> - **`Donation` has `caseId`/`projectId`**; approving one credits that case's `raisedAmount`.
+> - **References are 60-bit crypto-random base32**, not six digits.
+>
+> Full delivery status, evidence and remaining work live in the monorepo's `qa/`.
 >
 > **Updated 2026-07-05** to cover the newer mobile screens: in-app Notifications + preferences, News/Articles feed, Volunteer applications, Contact-us messages, My Bookings, Donation history/receipts, Account settings, Zakat calculator (nisab config), FAQ, Onboarding. Sections marked **(v1.1)** are those additions.
 >
