@@ -196,7 +196,7 @@ describe('every admin mutation surface is intercepted', () => {
    * would fail. This asserts the wiring itself rather than one endpoint's
    * behaviour.
    */
-  it('no *-admin controller is missing the interceptor', () => {
+  it('no admin controller mutates without an audit trail', () => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const fs = require('fs');
     // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -209,18 +209,70 @@ describe('every admin mutation surface is intercepted', () => {
       });
 
     const src = path.join(__dirname, '../../src');
-    const controllers = walk(src).filter(
-      (f: string) => f.endsWith('-admin.controller.ts') || f.endsWith('provider-portal.controller.ts'),
-    );
-    expect(controllers.length).toBeGreaterThan(10);
+
+    /*
+     * Selected by ROUTE, not by filename.
+     *
+     * The first version of this guard matched `*-admin.controller.ts` plus
+     * provider-portal, which is a naming convention rather than a rule —
+     * `src/admin/roles.controller.ts` serves `admin/roles` and was never checked,
+     * and `admin/admin-users` would have slipped through the same gap.
+     */
+    const controllers = walk(src)
+      .filter((f: string) => f.endsWith('.controller.ts'))
+      .filter((f: string) => {
+        const body = fs.readFileSync(f, 'utf8');
+        return /@Controller\(\s*['"`](admin\/|me\/provider)/.test(body);
+      });
+
+    expect(controllers.length).toBeGreaterThan(15);
 
     const missing = controllers.filter((f: string) => {
       const body = fs.readFileSync(f, 'utf8');
       // A read-only controller has nothing to log.
-      const mutates = /@(Post|Patch|Put|Delete)\(/.test(body);
-      return mutates && !body.includes('UseInterceptors(ActivityLogInterceptor)');
+      if (!/@(Post|Patch|Put|Delete)\(/.test(body)) return false;
+      if (body.includes('UseInterceptors(ActivityLogInterceptor)')) return false;
+      /*
+       * The documented alternative: a controller whose request bodies carry
+       * secrets must NOT use the interceptor, because it stores
+       * `newValue: request.body` verbatim — a password would land in the
+       * activity log in plain text. Those write their entries in the service,
+       * and say so with this marker.
+       */
+      return !body.includes('AUDITED-IN-SERVICE');
     });
 
     expect(missing.map((f: string) => path.basename(f))).toEqual([]);
+  });
+
+  it('every controller claiming AUDITED-IN-SERVICE has a service that audits', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const fs = require('fs');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const path = require('path');
+
+    // The marker is an exemption from the check above, so it needs one of its
+    // own — otherwise it becomes a comment anyone can use to silence the guard.
+    const src = path.join(__dirname, '../../src');
+    const walk = (dir: string): string[] =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap((d: any) => {
+        const full = path.join(dir, d.name);
+        return d.isDirectory() ? walk(full) : [full];
+      });
+
+    const claiming = walk(src)
+      .filter((f: string) => f.endsWith('.controller.ts'))
+      .filter((f: string) => fs.readFileSync(f, 'utf8').includes('AUDITED-IN-SERVICE'));
+
+    expect(claiming.length).toBeGreaterThan(0);
+
+    for (const controller of claiming) {
+      const siblings = fs
+        .readdirSync(path.dirname(controller))
+        .filter((n: string) => n.endsWith('.service.ts'))
+        .map((n: string) => fs.readFileSync(path.join(path.dirname(controller), n), 'utf8'));
+
+      expect(siblings.some((s: string) => s.includes('activityLog.create'))).toBe(true);
+    }
   });
 });

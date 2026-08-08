@@ -12,6 +12,12 @@ import { CurrentAdmin } from '../common/decorators/current-admin.decorator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiZodBody } from '../common/swagger/api-zod-body.decorator';
 
+/**
+ * AUDITED-IN-SERVICE: no `ActivityLogInterceptor` here, deliberately. It stores
+ * `newValue: request.body`, and these bodies are credentials — the current and
+ * new password on a change, the login password on the way in. `AuthService`
+ * writes the audit entry for a password change itself, with no body attached.
+ */
 @ApiTags('Auth')
 @Controller('admin/auth')
 export class AdminAuthController {

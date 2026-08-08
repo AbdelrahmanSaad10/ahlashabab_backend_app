@@ -22,12 +22,12 @@ Backend requirements for **جمعية خواطر أحلى شباب**, derived fr
 > npm run start:dev
 > ```
 >
-> ### Tests — 227, in one run
+> ### Tests — 246, in one run
 >
 > ```bash
 > npm test               # unit + e2e, no database needed
 > npm run test:int:local # integration, on a disposable PostgreSQL it creates itself
-> npm run test:cov       # BOTH, single merged coverage report (~57%)
+> npm run test:cov       # BOTH, single merged coverage report (~58%)
 > ```
 >
 > The DB-backed runs are `--maxWorkers=1`. `maxWorkers` inside a `projects[]` entry is not part of
