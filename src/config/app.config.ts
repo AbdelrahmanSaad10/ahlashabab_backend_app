@@ -14,7 +14,27 @@ export const envSchema = z.object({
   UPLOAD_DIR: z.string().default('./uploads'),
   PUBLIC_BASE_URL: z.string().default('http://localhost:4000'),
 
+  /**
+   * ⚠️ Retired. Kept only so an existing deployment does not fail validation.
+   *
+   * An "FCM server key" authenticates the **legacy** FCM HTTP API, which Google
+   * deprecated in June 2023 and shut down on **20 June 2024**. Row 49 of the
+   * delivery matrix was filed BLOCKED waiting for this key — a credential that
+   * would not have worked on arrival, for a feature that had no send path.
+   *
+   * Push uses `FIREBASE_SERVICE_ACCOUNT` below. If this is set, the app logs a
+   * warning at boot saying it is ignored.
+   */
   FCM_SERVER_KEY: z.string().optional(),
+
+  /**
+   * The Firebase service account, as JSON — Firebase console → Project settings
+   * → Service accounts → Generate new private key. Either the JSON itself, or a
+   * path to the file. Without one, push is disabled and says so at boot;
+   * notifications still reach the in-app feed.
+   */
+  FIREBASE_SERVICE_ACCOUNT: z.string().optional(),
+  FIREBASE_SERVICE_ACCOUNT_PATH: z.string().optional(),
 
   EMAIL_PROVIDER: z.enum(['ses', 'sendgrid', 'smtp']).default('smtp'),
   EMAIL_FROM: z.string().default('no-reply@ahlashabab.com'),
