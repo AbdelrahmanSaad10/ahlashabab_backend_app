@@ -18,6 +18,10 @@ name: Deploy Backend
 on:
   push:
     branches: [main]
+  # Manually re-runnable. The SSH connection to the server times out
+  # intermittently — three times in one afternoon — and without this, retrying a
+  # deploy meant pushing an empty commit.
+  workflow_dispatch:
 
 jobs:
   deploy:
