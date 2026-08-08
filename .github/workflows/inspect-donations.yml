@@ -29,6 +29,9 @@ jobs:
             # Reuse the app's own DATABASE_URL rather than hardcoding credentials.
             DB=$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d= -f2- | tr -d '"'"'"'')
             if [ -z "$DB" ]; then echo "::error::could not read DATABASE_URL"; exit 1; fi
+            # Prisma accepts `?schema=public`; psql rejects it as an invalid URI
+            # query parameter. Strip it (same fix as the T-01 migration work).
+            DB="${DB%%\?*}"
 
             run() { psql "$DB" -v ON_ERROR_STOP=1 -c "$1"; }
 
