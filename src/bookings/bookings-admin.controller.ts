@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Query,
-  Res,
-  UsePipes,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, Res, UsePipes, UseInterceptors } from '@nestjs/common';
 import { Response } from 'express';
 import { BookingsService } from './bookings.service';
 import {
@@ -21,11 +12,20 @@ import {
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { RequirePermission } from '../common/decorators/permissions.decorator';
 import { CurrentAdmin } from '../common/decorators/current-admin.decorator';
+import { ActivityLogInterceptor } from '../common/interceptors/activity-log.interceptor';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiProduces, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ApiZodBody, ApiZodQuery } from '../common/swagger/api-zod-body.decorator';
 
 @ApiTags('Bookings')
 @ApiBearerAuth('access-token')
+/*
+ * Bookings were the ONE admin surface with no audit trail: every content, CMS,
+ * donation and user mutation was logged, but confirming, cancelling or marking a
+ * booking no-show left no record of who did it. Bookings are the operational
+ * core — the thing a beneficiary actually turns up for — so a status change is
+ * exactly what an audit log is for (T-14, matrix row 35).
+ */
+@UseInterceptors(ActivityLogInterceptor)
 @Controller('admin/bookings')
 export class BookingsAdminController {
   constructor(private readonly bookingsService: BookingsService) {}

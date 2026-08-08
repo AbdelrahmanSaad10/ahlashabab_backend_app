@@ -1,18 +1,8 @@
-import {
-  Body,
-  Controller,
-  ForbiddenException,
-  Get,
-  NotFoundException,
-  Param,
-  Patch,
-  Query,
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, Patch, Query, BadRequestException, ConflictException, UseInterceptors } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CurrentAdmin } from '../common/decorators/current-admin.decorator';
+import { ActivityLogInterceptor } from '../common/interceptors/activity-log.interceptor';
 import {
   BookingStatus,
   BOOKING_TRANSITIONS,
@@ -27,6 +17,12 @@ interface AdminUserPayload {
 
 @ApiTags('Provider portal')
 @ApiBearerAuth('access-token')
+/*
+ * The provider portal changes booking status and schedules, and its callers are
+ * admin users (`@CurrentAdmin`), so those mutations belong in the audit log for
+ * the same reason as the admin controller above.
+ */
+@UseInterceptors(ActivityLogInterceptor)
 @Controller('me/provider')
 export class ProviderPortalController {
   constructor(private readonly prisma: PrismaService) {}
