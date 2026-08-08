@@ -1,0 +1,51 @@
+name: Inspect donation statuses (read-only)
+
+# Manual only. Counts donations by status and method so we know whether any are
+# stranded in «قيد التأكيد» — awaiting a payment gateway that does not exist.
+#
+# READ-ONLY: SELECT and COUNT only, no UPDATE, no DELETE. It deliberately prints
+# **aggregates only** — no donor names, no references, no amounts per row — so a
+# workflow log never becomes a copy of the charity's donor list.
+#
+# Delete this workflow once the question is answered; a standing root-SSH path
+# into production is not something to leave lying around.
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Count donations by status (aggregates only)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 3m
+          script: |
+            cd /var/www/ahlashabab-backend
+
+            # Reuse the app's own DATABASE_URL rather than hardcoding credentials.
+            DB=$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d= -f2- | tr -d '"'"'"'')
+            if [ -z "$DB" ]; then echo "::error::could not read DATABASE_URL"; exit 1; fi
+
+            run() { psql "$DB" -v ON_ERROR_STOP=1 -c "$1"; }
+
+            echo "===== total donations ====="
+            run "SELECT count(*) AS total FROM donations;"
+
+            echo; echo "===== by status ====="
+            run "SELECT status, count(*) AS n, sum(amount) AS total_egp
+                   FROM donations GROUP BY status ORDER BY n DESC;"
+
+            echo; echo "===== the stranded set: «قيد التأكيد» by method ====="
+            run "SELECT method, count(*) AS n, sum(amount) AS total_egp, min(created_at)::date AS oldest
+                   FROM donations
+                  WHERE status = 'قيد التأكيد'
+                  GROUP BY method ORDER BY n DESC;"
+
+            echo; echo "===== are any linked to a case/project yet? (T-20) ====="
+            run "SELECT count(*) FILTER (WHERE case_id IS NOT NULL) AS with_case,
+                        count(*) FILTER (WHERE project_id IS NOT NULL) AS with_project
+                   FROM donations;"
