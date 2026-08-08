@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { normalizeEmail } from '../common/utils/email.util';
 import { generateReference } from '../common/utils/reference.util';
 import { CreateConsultationDto } from './dto/create-consultation.dto';
+import { ConsultationStatus } from '../common/constants/statuses';
 
 @Injectable()
 export class ConsultationsService {
@@ -122,18 +123,39 @@ export class ConsultationsService {
     });
   }
 
+  /**
+   * Assign a consultation to a provider at a time.
+   *
+   * This existed and **no controller route exposed it**, so a request could be
+   * marked «تم تحديد موعد» through the status route while `providerId`, `date`
+   * and `timeSlot` all stayed null — a status saying an appointment was arranged
+   * with nothing recorded about it. The status route now refuses that value and
+   * points here.
+   */
   async schedule(id: string, dto: { providerId: string; date: string; timeSlot: string }) {
     const consultation = await this.prisma.consultationRequest.findUnique({ where: { id } });
     if (!consultation) {
       throw new NotFoundException('طلب الاستشارة غير موجود');
     }
+
+    if (consultation.status === ConsultationStatus.CANCELLED) {
+      throw new BadRequestException('لا يمكن تحديد موعد لطلب ملغي');
+    }
+
+    // Checked rather than left to the foreign key: an unknown id would otherwise
+    // surface as a Prisma error and a 500, when it is the caller's mistake.
+    const provider = await this.prisma.provider.findUnique({ where: { id: dto.providerId } });
+    if (!provider) {
+      throw new BadRequestException('مقدم الخدمة غير موجود');
+    }
+
     return this.prisma.consultationRequest.update({
       where: { id },
       data: {
         providerId: dto.providerId,
         date: new Date(dto.date),
         timeSlot: dto.timeSlot,
-        status: 'تم تحديد موعد',
+        status: ConsultationStatus.SCHEDULED,
       },
     });
   }

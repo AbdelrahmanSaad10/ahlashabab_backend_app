@@ -22,7 +22,7 @@ Backend requirements for **جمعية خواطر أحلى شباب**, derived fr
 > npm run start:dev
 > ```
 >
-> ### Tests — 260, in one run
+> ### Tests — 273, in one run
 >
 > ```bash
 > npm test               # unit + e2e, no database needed

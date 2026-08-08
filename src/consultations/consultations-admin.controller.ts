@@ -10,7 +10,17 @@ import {
 import { ActivityLogInterceptor } from '../common/interceptors/activity-log.interceptor';
 import { RequirePermission } from '../common/decorators/permissions.decorator';
 import { ConsultationsService } from './consultations.service';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { ApiZodBody } from '../common/swagger/api-zod-body.decorator';
+import {
+  UpdateConsultationStatusDto,
+  UpdateConsultationStatusSchema,
+} from './dto/update-consultation-status.dto';
+import {
+  ScheduleConsultationDto,
+  ScheduleConsultationSchema,
+} from './dto/schedule-consultation.dto';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Consultations')
 @ApiBearerAuth('access-token')
@@ -45,15 +55,35 @@ export class ConsultationsAdminController {
 
   @ApiOperation({
     summary: 'Update a consultation request status',
-    description: 'Requires portfolio:write. Sending `تم تحديد موعد` marks it scheduled — see BACKEND.md §20 for how that relates to bookings.',
+    description:
+      'One of جديد · قيد المراجعة · مكتمل · ملغي. **`تم تحديد موعد` is refused here** — scheduling '
+      + 'means a provider, a date and a time, so it goes through PATCH :id/schedule. Requires '
+      + 'portfolio:write.',
   })
-  @ApiBody({ schema: { type: 'object', required: ['status'], properties: { status: { type: 'string', example: 'تم تحديد موعد' } } } })
+  @ApiZodBody(UpdateConsultationStatusSchema)
   @Patch(':id/status')
   @RequirePermission('portfolio', 'write')
   updateStatus(
     @Param('id') id: string,
-    @Body('status') status: string,
+    @Body(new ZodValidationPipe(UpdateConsultationStatusSchema)) dto: UpdateConsultationStatusDto,
   ) {
-    return this.consultationsService.updateStatus(id, status);
+    return this.consultationsService.updateStatus(id, dto.status);
+  }
+
+  @ApiOperation({
+    summary: 'Schedule a consultation with a provider',
+    description:
+      'Assigns the request to a provider at a date and time and sets the status to تم تحديد موعد. '
+      + 'This existed in the service and no route exposed it, so a request could be marked scheduled '
+      + 'with no provider, date or time recorded against it. Requires portfolio:write.',
+  })
+  @ApiZodBody(ScheduleConsultationSchema)
+  @Patch(':id/schedule')
+  @RequirePermission('portfolio', 'write')
+  schedule(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(ScheduleConsultationSchema)) dto: ScheduleConsultationDto,
+  ) {
+    return this.consultationsService.schedule(id, dto);
   }
 }
