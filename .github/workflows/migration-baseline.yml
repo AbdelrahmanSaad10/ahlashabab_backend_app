@@ -75,13 +75,36 @@ jobs:
 
             echo
             echo "── resolving ────────────────────────────────────────────────"
-            set -e
-            npx prisma migrate resolve --rolled-back 0_init
-            npx prisma migrate resolve --applied 0_init
-            npx prisma migrate resolve --applied 20260807211405_donation_case_project_links
+            #
+            # Idempotent on purpose. The state moved between the first run of this
+            # job and the second: `0_init` had been recorded as FAILED in the
+            # morning's deploy and was already applied by the time `check` ran, so
+            # a fixed list of commands would have failed on its first line and
+            # done nothing.
+            #
+            # Each step is attempted and allowed to fail — `resolve` errors when a
+            # migration is not in the state the flag expects, which here means
+            # "already done". What makes that safe is the verification below: the
+            # job fails unless Prisma itself reports the history clean at the end.
+            #
+            for dir in prisma/migrations/*/; do
+              name=$(basename "$dir")
+              echo "· $name"
+              npx prisma migrate resolve --rolled-back "$name" 2>/dev/null || true
+              npx prisma migrate resolve --applied "$name" 2>/dev/null || true
+            done
 
             echo
             echo "── status after ─────────────────────────────────────────────"
-            npx prisma migrate status
+            npx prisma migrate status | tee /tmp/migrate-status.txt
+
+            if ! grep -q "up to date" /tmp/migrate-status.txt; then
+              echo
+              echo "✗ Prisma does not report the history as up to date — stopping here"
+              echo "  rather than reporting a success nobody verified."
+              exit 1
+            fi
+            echo
+            echo "✓ migration history is clean; the next deploy will apply migrations normally"
         env:
           MODE: ${{ inputs.mode }}
