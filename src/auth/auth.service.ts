@@ -203,6 +203,71 @@ export class AuthService {
   }
 
   // ----------------------------------------------------------------
+  // Admin Password Change
+  // ----------------------------------------------------------------
+
+  /**
+   * Rotate an administrator's own password.
+   *
+   * Nothing in the product could do this before, which is why the seeded
+   * password — published in a public repository — stayed live. Three things
+   * happen together and deliberately:
+   *
+   * 1. the current password is verified, so a stolen access token alone cannot
+   *    take the account over;
+   * 2. **every refresh token for this admin is revoked**, so if the old password
+   *    had leaked, the sessions it opened die with it. Without this, rotating
+   *    the password evicts nobody for up to 30 days;
+   * 3. an audit row is written *here* rather than by `ActivityLogInterceptor`.
+   *    The interceptor stores `newValue: request.body`, so wiring it to this
+   *    route would put both passwords in the activity log in plain text.
+   */
+  async changeAdminPassword(
+    adminId: string,
+    currentPassword: string,
+    newPassword: string,
+    context: { ip?: string; userAgent?: string } = {},
+  ): Promise<{ message: string }> {
+    const adminUser = await this.prisma.adminUser.findUnique({ where: { id: adminId } });
+
+    if (!adminUser || !adminUser.active) {
+      throw new UnauthorizedException('حساب المسؤول غير موجود أو معطل');
+    }
+
+    const valid = await argon2.verify(adminUser.passwordHash, currentPassword);
+    if (!valid) {
+      throw new UnauthorizedException('كلمة المرور الحالية غير صحيحة');
+    }
+
+    const passwordHash = await argon2.hash(newPassword);
+
+    await this.prisma.$transaction([
+      this.prisma.adminUser.update({
+        where: { id: adminId },
+        data: { passwordHash },
+      }),
+      this.prisma.refreshToken.updateMany({
+        where: { adminUserId: adminId, revoked: false },
+        data: { revoked: true },
+      }),
+      this.prisma.activityLog.create({
+        data: {
+          actorId: adminId,
+          action: 'update',
+          entityType: 'admin-password',
+          entityId: adminId,
+          ip: context.ip ?? null,
+          userAgent: context.userAgent ?? null,
+        },
+      }),
+    ]);
+
+    this.logger.log(`Password changed for admin ${adminUser.email}`);
+
+    return { message: 'تم تغيير كلمة المرور بنجاح. برجاء تسجيل الدخول من جديد.' };
+  }
+
+  // ----------------------------------------------------------------
   // Refresh Tokens
   // ----------------------------------------------------------------
 

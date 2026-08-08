@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
@@ -58,10 +58,36 @@ export class EmailService {
       this.logger.log(`OTP sent to ${to}`);
     } catch (error) {
       this.logger.error(`Failed to send OTP to ${to}:`, error);
-      // In development, log the OTP for testing
-      if (this.config.get<string>('NODE_ENV') === 'development') {
+
+      /*
+       * Outside production the log IS the delivery channel: no SMTP is
+       * configured on a developer's machine, and printing the code is what makes
+       * the real login flow usable locally. The gate was `=== 'development'`,
+       * which meant a staging or test environment — the two places QA actually
+       * works — logged nothing and had no way in at all.
+       */
+      if (this.config.get<string>('NODE_ENV') !== 'production') {
         this.logger.warn(`[DEV] OTP for ${to}: ${code}`);
+        return;
       }
+
+      /*
+       * In production, do NOT pretend it was sent.
+       *
+       * This catch used to swallow everything, so `POST /auth/otp/request`
+       * answered 200 with «تم إرسال رمز التحقق إلى بريدك الإلكتروني» whether or
+       * not a single byte left the server. With no SMTP credentials configured
+       * that is every request: the app told the user to check their inbox, and
+       * nothing was ever coming. A user could not log in and could not find out
+       * why, and neither could anyone reading the API.
+       *
+       * The 503 does not leak whether the address exists — it depends only on
+       * the mail transport — so the anti-enumeration property of this endpoint
+       * is unaffected.
+       */
+      throw new ServiceUnavailableException(
+        'تعذّر إرسال رمز التحقق حالياً. برجاء المحاولة مرة أخرى لاحقاً.',
+      );
     }
   }
 

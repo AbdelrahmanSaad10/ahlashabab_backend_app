@@ -38,6 +38,30 @@ export const envSchema = z.object({
   RATE_LIMIT_WINDOW: z.coerce.number().default(60),
   RATE_LIMIT_MAX: z.coerce.number().default(100),
 
+  /**
+   * How many reverse proxies sit in front of the app.
+   *
+   * Everything that identifies a caller — the rate limiter's bucket and the
+   * `ip` column of the admin activity log — reads `request.ip`. Express only
+   * derives that from `X-Forwarded-For` when it is told to trust the proxies;
+   * otherwise it returns the socket peer, which behind a proxy is **the same
+   * address for every visitor on earth**.
+   *
+   * This deployment answers through Cloudflare and an nginx in front of the
+   * Node process, and this setting was absent — so the rate limits were one
+   * global bucket. 100 requests a minute shared by every user, 5 admin login
+   * attempts per 10 minutes shared by every administrator (one person mistyping
+   * a password locked out the whole foundation), 5 OTP requests per 10 minutes
+   * for the entire mobile user base, and an audit log whose `ip` column
+   * recorded the proxy for every action ever taken.
+   *
+   * Left at `false` by default because the wrong value is its own bug: trusting
+   * a hop that does not exist lets a caller set `X-Forwarded-For` freely and
+   * skip the limits entirely. Set it to the number of proxies that actually
+   * rewrite the header — see .env.example.
+   */
+  TRUST_PROXY: z.string().default('false'),
+
   REDIS_HOST: z.string().default('localhost'),
   REDIS_PORT: z.coerce.number().default(6379),
 
