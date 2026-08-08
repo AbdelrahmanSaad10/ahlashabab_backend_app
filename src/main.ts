@@ -1,31 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { applyTrustProxy } from './common/utils/trust-proxy.util';
+import { configureApp } from './bootstrap';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
-  // Security — allow Swagger UI inline scripts/styles
-  app.use(
-    helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'cdn.jsdelivr.net'],
-          styleSrc: ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net'],
-          imgSrc: ["'self'", 'data:', 'cdn.jsdelivr.net'],
-          fontSrc: ["'self'", 'cdn.jsdelivr.net'],
-        },
-      },
-    }),
-  );
-
-  // Global prefix
-  app.setGlobalPrefix('api/v1');
+  configureApp(app, config);
 
   // Prevent browsers/proxies from caching Swagger UI & JSON spec
   const noCache = (_req: any, res: any, next: any) => {
@@ -76,31 +59,6 @@ async function bootstrap() {
     },
     customSiteTitle: 'أحلى شباب API Docs',
   });
-
-  // CORS
-  const origins = (config.get<string>('CORS_ORIGINS') ?? '')
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean);
-  app.enableCors({
-    origin: origins.length > 0 ? origins : true,
-    credentials: true,
-  });
-
-  /*
-   * Who the caller is, according to Express.
-   *
-   * `request.ip` is what the rate limiter buckets on and what the admin activity
-   * log records. Behind a proxy — this deployment answers through Cloudflare and
-   * an nginx — it is the proxy's address unless the proxy chain is trusted, so
-   * every visitor shared one bucket and one logged IP. See TRUST_PROXY in
-   * app.config.ts for what that cost.
-   *
-   * Setting it wrong is its own bug, so the value is explicit rather than
-   * guessed, and the effective setting is announced at boot: a silent default is
-   * exactly how this went unnoticed.
-   */
-  applyTrustProxy(app, config.get<string>('TRUST_PROXY') ?? 'false');
 
   const port = config.get<number>('PORT') ?? 4000;
   await app.listen(port);

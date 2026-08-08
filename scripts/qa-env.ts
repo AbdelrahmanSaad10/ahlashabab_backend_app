@@ -210,9 +210,15 @@ async function main() {
 
     // --- the API itself -------------------------------------------------
     const { NestFactory } = require('@nestjs/core');
+    const { ConfigService } = require('@nestjs/config');
     const { AppModule } = require('../src/app.module');
+    const { configureApp } = require('../src/bootstrap');
     const app = await NestFactory.create(AppModule, { logger: ['error', 'warn'] });
-    app.setGlobalPrefix('api/v1');
+    // The same middleware production gets — prefix, helmet, trust proxy, CORS.
+    // This script used to set only the prefix, so the API answered curl and
+    // rejected every browser: no CORS meant the dashboard's preflight 404'd and
+    // each request failed with net::ERR_FAILED.
+    configureApp(app, app.get(ConfigService));
     await app.listen(apiPort, '127.0.0.1');
     cleanups.push(() => app.close());
 
