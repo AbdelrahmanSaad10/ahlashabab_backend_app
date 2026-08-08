@@ -44,10 +44,21 @@ module.exports = {
       ...shared,
       displayName: 'integration',
       testRegex: '\\.int-spec\\.ts$',
-      // These talk to a real database: give them room, and no parallel workers
-      // racing each other over the same rows.
-      testTimeout: 30000,
-      maxWorkers: 1,
+      /*
+       * These talk to a real database, so they need a longer timeout than the
+       * 5s default. It is set in a setup file rather than as `testTimeout` here:
+       * Jest validates project configs against the *project* schema and quietly
+       * ignores what it does not recognise — `testTimeout: 30000` produced only
+       * a "Unknown option" warning and never took effect.
+       *
+       * `maxWorkers: 1` sat here too, and was ignored for the same reason. It
+       * read as protection against suites racing each other over shared rows,
+       * and there was none: the merged run passed on CI only because a GitHub
+       * runner has few enough cores to serialise by accident. On a 10-core
+       * machine it failed 53 of 227 tests. Serialisation now happens where Jest
+       * honours it — the `--maxWorkers=1` in `test:cov`/`test:ci`/`test:int`.
+       */
+      setupFilesAfterEnv: ['<rootDir>/test/integration/jest.setup.ts'],
     },
   ],
 
@@ -72,10 +83,10 @@ module.exports = {
    */
   coverageThreshold: {
     global: {
-      statements: 54,
-      branches: 29,
-      functions: 28,
-      lines: 52,
+      statements: 57,
+      branches: 33,
+      functions: 32,
+      lines: 55,
     },
   },
 };
