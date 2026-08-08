@@ -1,5 +1,20 @@
 name: Deploy Backend
 
+# The schema step used to be `npx prisma db push --skip-generate`, and stayed that
+# way after T-01 baselined the migrations. `db push` has no history, no review step
+# and no plan: it issues whatever DDL makes the database match schema.prisma,
+# including dropping and rewriting columns, against a live database holding
+# donations and beneficiary records.
+#
+# It is not simply replaced by `migrate deploy`: production's schema was created
+# by `db push`, so it has no `_prisma_migrations` table and Prisma refuses with
+# P3005. `scripts/apply-schema.js` reads the database and picks — deploy when the
+# history exists or the database is empty, and otherwise stop with the one-time
+# baseline commands, changing nothing. See prisma/migrations/README.md.
+#
+# This workflow still does NOT wait for CI (`needs: [test]`), which is a release
+# policy call — see qa/REMAINING_TASKS.md.
+
 on:
   push:
     branches: [main]
@@ -21,7 +36,7 @@ jobs:
             npm install
             npx prisma generate
             npx nest build
-            npx prisma db push --skip-generate
+            node scripts/apply-schema.js
             npx prisma db seed
             pm2 restart ahlashabab-api --update-env
             echo "Backend deployed successfully"

@@ -22,22 +22,43 @@ npx prisma db seed
 The deployed database already contains these tables but has **no `_prisma_migrations`
 history**. Running `migrate deploy` against it will try to re-create existing tables and fail.
 
-It must be **baselined once** — this records the migration as already applied without
+It must be **baselined once** — this records the migrations as already applied without
 executing any SQL:
 
 ```bash
-# one time, against the existing database
+# one time, against the existing database, in this order
 npx prisma migrate resolve --applied 0_init
+npx prisma migrate resolve --applied 20260807211405_donation_case_project_links
 npx prisma migrate status   # expect: Database schema is up to date!
 ```
 
-Only **after** that one-time baseline should CI be switched from
-`npx prisma db push --skip-generate` to `npx prisma migrate deploy`
-(`.github/workflows/deploy.yml`). `db push` is unsafe for production: it can silently drop or
-rewrite columns to force the schema to match, with no migration history and no review step.
+> **Every migration in `prisma/migrations/` must be resolved, not just `0_init`.** This runbook
+> originally named the baseline alone, because it was the only migration at the time.
+> `20260807211405_donation_case_project_links` landed with T-20 and reached production through
+> `db push` like everything else, so it needs recording too. Anything added later does as well —
+> `scripts/apply-schema.js` prints the current list, so use its output rather than this one.
 
-**Status:** the CI switch is intentionally *not* included in this commit because the one-time
-baseline requires access to the production database, which the audit environment does not have.
+## The deploy no longer uses `db push`
+
+`.github/workflows/deploy.yml` runs **`node scripts/apply-schema.js`**, which reads the database
+and decides:
+
+| State | Action |
+|---|---|
+| `_prisma_migrations` exists | `prisma migrate deploy` — the normal path |
+| No migrations table, no tables | `prisma migrate deploy` — a fresh database applies the baseline |
+| No migrations table, tables present | **Stops.** Prints the commands above and exits non-zero **without changing the schema** |
+
+The third row is production today. Failing the deploy there is deliberate: a deploy that cannot
+apply its schema must not go on to restart the application, and it must certainly not fall back to
+`db push`.
+
+Verified on throwaway clusters in `test/integration/apply-schema.int-spec.ts`, including reproducing
+the P3005 failure that a naive switch to `migrate deploy` would have shipped.
+
+**Status:** the workflow is switched. The one-time baseline still requires access to the production
+database — until it is run, deploys will stop at the schema step with the instructions above,
+having changed nothing.
 See `qa/REMAINING_TASKS.md` → T-01 follow-up.
 
 ## Adding a change from here on
