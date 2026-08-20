@@ -109,6 +109,38 @@ jobs:
             npx prisma migrate status 2>&1 | grep -E "migrations found|up to date|not yet been applied|failed" | sed 's/^/  /'
 
             echo
+            echo "═══ data integrity ═════════════════════════════════════════"
+            # Whether any slot is double-booked among non-cancelled rows. T-09
+            # proved the application refuses a concurrent double-booking, but
+            # nothing at the database level enforces it — and the partial unique
+            # index that would was left unapplied precisely because this could not
+            # be checked. Counts only; no row data is printed.
+            node -e '
+              const { PrismaClient } = require("@prisma/client");
+              const p = new PrismaClient();
+              (async () => {
+                try {
+                  const dupes = await p.$queryRawUnsafe(`
+                    SELECT count(*)::int AS groups, coalesce(sum(n) - count(*), 0)::int AS extra
+                    FROM (
+                      SELECT provider_id, date, time_slot, count(*) AS n
+                      FROM bookings WHERE status <> $$ملغي$$
+                      GROUP BY 1,2,3 HAVING count(*) > 1
+                    ) d`);
+                  const total = await p.booking.count();
+                  console.log("  bookings total          : " + total);
+                  console.log("  slots double-booked     : " + dupes[0].groups);
+                  console.log("  surplus rows            : " + dupes[0].extra);
+                  console.log(dupes[0].groups === 0
+                    ? "  ✓ no duplicates — the partial unique index can be applied safely"
+                    : "  ⚠ duplicates present — they must be resolved before the index can be created");
+                } catch (e) {
+                  console.log("  could not query: " + e.message.split("\n")[0]);
+                } finally { await p.$disconnect(); }
+              })();
+            '
+
+            echo
             echo "═══ health, from the server itself ═════════════════════════"
             # Bypasses Cloudflare and nginx, so a failure here is the app itself.
             PORT=$(grep -E '^PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d '\r' || echo 4000)
