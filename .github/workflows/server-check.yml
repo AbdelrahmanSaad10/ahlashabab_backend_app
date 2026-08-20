@@ -39,6 +39,28 @@ jobs:
             BEHIND=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo '?')
             echo "  behind    : $BEHIND commit(s)"
 
+            # Commits that exist only here. The first run of this job found one:
+            # a change made directly on the production server, in no repository,
+            # unreviewed, never through CI, and lost or conflicting the moment
+            # anyone pulls. Worth surfacing every time rather than never.
+            DRIFT=$(git log --oneline origin/main..HEAD 2>/dev/null | wc -l | tr -d ' ')
+            if [ "$DRIFT" != "0" ]; then
+              echo
+              echo "  ⚠ $DRIFT commit(s) exist ONLY on this server:"
+              git log --format='    %h %ad %an — %s' --date=short origin/main..HEAD 2>/dev/null
+              echo
+              echo "  files they touch:"
+              git diff --stat origin/main...HEAD 2>/dev/null | sed 's/^/    /'
+              echo
+              echo "  the change itself (first 120 lines):"
+              git diff origin/main...HEAD 2>/dev/null | head -120 | sed 's/^/    /'
+            fi
+
+            echo
+            echo "  uncommitted changes in the working tree:"
+            git status --porcelain 2>/dev/null | head -20 | sed 's/^/    /' || true
+            [ -z "$(git status --porcelain 2>/dev/null)" ] && echo "    (none)"
+
             echo
             echo "═══ process ════════════════════════════════════════════════"
             # Restart count matters: a number that climbs on its own is a crash
