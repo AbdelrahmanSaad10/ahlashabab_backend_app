@@ -1,0 +1,82 @@
+name: Configure push (Firebase)
+
+# Installs the Firebase Admin SDK service account on the server and restarts the
+# API, so push can be enabled without anyone needing shell access.
+#
+# The key is read from the FIREBASE_SERVICE_ACCOUNT repository secret. It is
+# passed to the server through the action's `envs`, written to a file with mode
+# 600, and referenced from .env by PATH — never inlined into .env, which would
+# mean escaping a multi-line JSON document into a single shell-quoted value and
+# getting it subtly wrong.
+#
+# ⚠️ THIS REPOSITORY IS PUBLIC, so this workflow's log is public. The key is
+# never echoed: the script prints only the project id and the client email's
+# domain, both of which are already visible in the Firebase console to anyone
+# with access to the project. GitHub also masks registered secrets in logs, but
+# that is a backstop, not the design.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install the service account and restart
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 5m
+          envs: FIREBASE_SERVICE_ACCOUNT
+          script: |
+            set -uo pipefail
+            cd /var/www/ahlashabab-backend
+
+            if [ -z "${FIREBASE_SERVICE_ACCOUNT:-}" ]; then
+              echo "✗ The FIREBASE_SERVICE_ACCOUNT repository secret is empty or unset."
+              echo "  Add it under Settings → Secrets and variables → Actions, pasting the"
+              echo "  whole JSON file downloaded from Firebase → Project settings →"
+              echo "  Service accounts → Generate new private key."
+              exit 1
+            fi
+
+            TARGET=/var/www/ahlashabab-backend/firebase-service-account.json
+            umask 077
+            printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$TARGET"
+            chmod 600 "$TARGET"
+
+            # Validate before restarting. A malformed key would otherwise be found
+            # only in a boot log nobody reads, and push would stay silently off —
+            # which is the failure mode this whole feature already had once.
+            node -e '
+              const fs=require("fs");
+              let j;
+              try { j = JSON.parse(fs.readFileSync(process.argv[1],"utf8")); }
+              catch(e){ console.log("✗ not valid JSON — re-download the key"); process.exit(1); }
+              const missing = ["project_id","client_email","private_key"].filter(k=>!j[k]);
+              if (missing.length) { console.log("✗ missing field(s): "+missing.join(", ")); process.exit(1); }
+              if (!String(j.private_key).includes("BEGIN PRIVATE KEY")) { console.log("✗ private_key does not look like a key"); process.exit(1); }
+              console.log("  ✓ key parsed — project " + j.project_id);
+              console.log("  ✓ client " + String(j.client_email).replace(/^[^@]+/, "<redacted>"));
+            ' "$TARGET" || exit 1
+
+            # Reference it by path. Removing any previous line first keeps .env
+            # from accumulating duplicates that shadow each other confusingly.
+            sed -i '/^FIREBASE_SERVICE_ACCOUNT_PATH=/d;/^FIREBASE_SERVICE_ACCOUNT=/d' .env
+            echo "FIREBASE_SERVICE_ACCOUNT_PATH=$TARGET" >> .env
+            echo "  ✓ .env now points at the key file"
+
+            pm2 restart ahlashabab-api --update-env >/dev/null 2>&1
+            echo "  ✓ restarted"
+            sleep 6
+
+            echo
+            echo "═══ what the app says now ══════════════════════════════════"
+            pm2 logs ahlashabab-api --nostream --lines 120 2>/dev/null \
+              | grep -E "Push notifications (enabled|are DISABLED)" | tail -2 | sed 's/^/  /'
+
+            echo
+            PORT=$(grep -E '^PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d '\r' || echo 4000)
+            curl -s --max-time 5 "http://127.0.0.1:${PORT:-4000}/api/v1/health" | sed 's/^/  /'
