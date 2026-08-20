@@ -1,0 +1,48 @@
+name: Preserve server-only commits (read-only)
+
+# Captures any commit that exists only on the server as a patch, so it can be
+# brought into the repository before anyone reconciles the two.
+#
+# Read-only: it reads git history and prints a patch. It changes nothing, and it
+# does not need push credentials on the server.
+#
+# The patch is printed base64-encoded as a single blob. Printing it as text means
+# scraping it back out of a log that prefixes every line with a timestamp, and a
+# patch that is subtly mangled is worse than no patch at all.
+#
+# The repository is public and so is this log — but the server's code is already
+# in a public repository, and this prints source, never configuration.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  preserve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Capture
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 3m
+          script: |
+            set -uo pipefail
+            cd /var/www/ahlashabab-backend
+            git fetch -q origin main 2>/dev/null || true
+
+            COUNT=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo 0)
+            echo "commits on this server and nowhere else: $COUNT"
+            if [ "$COUNT" = "0" ]; then
+              echo "nothing to preserve — the server is not ahead of origin"
+              exit 0
+            fi
+
+            git log --format='  %h %ad %an — %s' --date=short origin/main..HEAD
+
+            echo
+            echo "----- BEGIN PATCH BASE64 -----"
+            git format-patch origin/main..HEAD --stdout | base64 | tr -d '\n' | fold -w 200
+            echo
+            echo "----- END PATCH BASE64 -----"
