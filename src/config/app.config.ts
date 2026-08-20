@@ -14,7 +14,20 @@ export const envSchema = z.object({
   UPLOAD_DIR: z.string().default('./uploads'),
   PUBLIC_BASE_URL: z.string().default('http://localhost:4000'),
 
+  /**
+   * ⚠️ Retired. An "FCM server key" authenticates the legacy FCM HTTP API, which
+   * Google shut down on 20 June 2024. Kept only so an existing deployment does
+   * not fail validation; the app warns at boot if it is set.
+   */
   FCM_SERVER_KEY: z.string().optional(),
+
+  /**
+   * The Firebase service account — Firebase console → Project settings →
+   * Service accounts → Generate new private key. Either the JSON itself, or a
+   * path to the file. Without one, push is disabled and says so at boot.
+   */
+  FIREBASE_SERVICE_ACCOUNT: z.string().optional(),
+  FIREBASE_SERVICE_ACCOUNT_PATH: z.string().optional(),
 
   EMAIL_PROVIDER: z.enum(['ses', 'sendgrid', 'smtp']).default('smtp'),
   EMAIL_FROM: z.string().default('no-reply@ahlashabab.com'),
@@ -44,7 +57,27 @@ export const envSchema = z.object({
   WEBHOOK_SECRET: z.string().optional(),
 
   TRUST_PROXY: z.string().optional(),
-});
+})
+  /**
+   * Production must not start without a webhook secret.
+   *
+   * The controller already refuses to process unsigned callbacks, but a 503 at
+   * callback time means the operator finds out only once real payments are
+   * silently failing. Failing at boot moves the discovery to deploy time, which
+   * is the only moment it is cheap to fix.
+   */
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV !== 'production') return;
+    if (!env.WEBHOOK_SECRET || env.WEBHOOK_SECRET.length < 16) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['WEBHOOK_SECRET'],
+        message:
+          'WEBHOOK_SECRET is required in production and must be at least 16 characters. '
+          + 'Without it the payment webhook cannot verify that a callback came from the gateway.',
+      });
+    }
+  });
 
 export type EnvConfig = z.infer<typeof envSchema>;
 
