@@ -1,14 +1,44 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { configureApp } from './bootstrap';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
-  configureApp(app, config);
+  // Trust proxy — needed behind Cloudflare + nginx so Express reads
+  // the real client IP from X-Forwarded-For (rate limiting, audit log).
+  const trustProxy = config.get<string>('TRUST_PROXY');
+  if (trustProxy) {
+    const hops = Number(trustProxy);
+    const value = Number.isFinite(hops) ? hops : trustProxy;
+    app.getHttpAdapter().getInstance().set('trust proxy', value);
+    console.log(
+      `TRUST_PROXY=${trustProxy} — the client IP is taken ${hops} hop(s) back along X-Forwarded-For.`,
+    );
+  } else {
+    console.log('TRUST_PROXY=false — req.ip will be the direct connection address.');
+  }
+
+  // Security — allow Swagger UI inline scripts/styles
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'cdn.jsdelivr.net'],
+          styleSrc: ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net'],
+          imgSrc: ["'self'", 'data:', 'cdn.jsdelivr.net'],
+          fontSrc: ["'self'", 'cdn.jsdelivr.net'],
+        },
+      },
+    }),
+  );
+
+  // Global prefix
+  app.setGlobalPrefix('api/v1');
 
   // Prevent browsers/proxies from caching Swagger UI & JSON spec
   const noCache = (_req: any, res: any, next: any) => {
@@ -58,6 +88,16 @@ async function bootstrap() {
       tagsSorter: 'alpha',
     },
     customSiteTitle: 'أحلى شباب API Docs',
+  });
+
+  // CORS
+  const origins = (config.get<string>('CORS_ORIGINS') ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  app.enableCors({
+    origin: origins.length > 0 ? origins : true,
+    credentials: true,
   });
 
   const port = config.get<number>('PORT') ?? 4000;
