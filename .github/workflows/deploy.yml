@@ -42,7 +42,24 @@ jobs:
             # red.
             set -euo pipefail
             cd /var/www/ahlashabab-backend
-            git pull origin main
+
+            # `git pull` refuses outright when the server has commits of its own
+            # — "divergent branches", and the deploy stops before it starts. That
+            # happened, because a change was written directly on this machine.
+            #
+            # A deploy target should mirror origin, not hold work. Fetch and reset
+            # makes that true, and says loudly what it is about to discard rather
+            # than dropping it silently; the "Preserve server-only commits"
+            # workflow captures anything worth keeping first.
+            git fetch origin main
+            AHEAD=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo 0)
+            if [ "$AHEAD" != "0" ]; then
+              echo "⚠ discarding $AHEAD commit(s) that exist only on this server:"
+              git log --format='    %h %an — %s' origin/main..HEAD
+              echo "  If that is not intended, stop and run the"
+              echo "  'Preserve server-only commits' workflow before deploying again."
+            fi
+            git reset --hard origin/main
             npm install
             npx prisma generate
             npx nest build
