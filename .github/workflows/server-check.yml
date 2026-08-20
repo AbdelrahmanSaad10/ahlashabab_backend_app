@@ -1,0 +1,98 @@
+name: Server check (read-only)
+
+# A manually-triggered, read-only look at the live server, over the SSH
+# connection the deploy already uses. Nothing here writes, restarts or changes
+# anything — it exists so that "is it actually configured?" can be answered
+# without a shell, and without waiting on whoever has one.
+#
+# ⚠️ THIS REPOSITORY IS PUBLIC, so this workflow's log is public. Nothing in it
+# may print a secret. Environment variables are reported as `set` / `not set`
+# and never by value, and the log greps are narrowed to specific boot lines
+# rather than dumping application output, which can contain request data.
+#
+# The one exception is TRUST_PROXY, whose value is printed because it is a hop
+# count, not a credential, and knowing which hop count is live is the whole point
+# of checking it.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect the server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 3m
+          script: |
+            set -uo pipefail
+            cd /var/www/ahlashabab-backend
+
+            echo "═══ deployed code ═══════════════════════════════════════════"
+            git fetch -q origin main 2>/dev/null || true
+            echo "  on server : $(git rev-parse --short HEAD) — $(git log -1 --format=%s | cut -c1-70)"
+            echo "  on origin : $(git rev-parse --short origin/main)"
+            BEHIND=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo '?')
+            echo "  behind    : $BEHIND commit(s)"
+
+            echo
+            echo "═══ process ════════════════════════════════════════════════"
+            # Restart count matters: a number that climbs on its own is a crash
+            # loop, which looks identical to "running" in a one-line status.
+            pm2 jlist 2>/dev/null | node -e '
+              let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{
+                try{
+                  const p=JSON.parse(d).find(x=>x.name==="ahlashabab-api");
+                  if(!p) return console.log("  ahlashabab-api NOT FOUND in pm2");
+                  const up=Math.round((Date.now()-p.pm2_env.pm_uptime)/1000);
+                  console.log(`  status ${p.pm2_env.status} · uptime ${up}s · restarts ${p.pm2_env.restart_time} · mem ${Math.round(p.monit.memory/1048576)}mb`);
+                }catch(e){console.log("  could not parse pm2 output")}
+              })'
+
+            echo
+            echo "═══ configuration (presence only — never values) ════════════"
+            for v in FIREBASE_SERVICE_ACCOUNT FIREBASE_SERVICE_ACCOUNT_PATH FCM_SERVER_KEY \
+                     SMTP_HOST SMTP_USER SMTP_PASS EMAIL_PROVIDER_KEY \
+                     WEBHOOK_SECRET JWT_ACCESS_SECRET SEED_ADMIN_PASSWORD; do
+              if grep -qE "^${v}=.+" .env 2>/dev/null; then echo "  $v = set"; else echo "  $v = (not set)"; fi
+            done
+            # A hop count, not a credential — and the value is the point.
+            echo "  $(grep -E '^TRUST_PROXY=' .env 2>/dev/null || echo 'TRUST_PROXY= (not set)')"
+
+            echo
+            echo "  notes:"
+            grep -qE "^FIREBASE_SERVICE_ACCOUNT=.+|^FIREBASE_SERVICE_ACCOUNT_PATH=.+" .env 2>/dev/null \
+              || echo "    · push is DISABLED — notifications reach the in-app feed and no phone"
+            grep -qE "^TRUST_PROXY=[^f]" .env 2>/dev/null \
+              || echo "    · TRUST_PROXY unset — every visitor shares one rate-limit bucket"
+            grep -qE "^SEED_ADMIN_PASSWORD=.+" .env 2>/dev/null \
+              && echo "    · SEED_ADMIN_PASSWORD is still in .env — it is only needed to create the"
+            grep -qE "^SEED_ADMIN_PASSWORD=.+" .env 2>/dev/null \
+              && echo "      first administrator, and is a plaintext password sitting on disk. Remove it."
+
+            echo
+            echo "═══ what the app said at boot ══════════════════════════════"
+            # Narrow greps on purpose: a full log dump can contain request data.
+            pm2 logs ahlashabab-api --nostream --lines 400 2>/dev/null \
+              | grep -E "TRUST_PROXY=|Push notifications (enabled|are DISABLED)|Server running" \
+              | tail -5 | sed 's/^/  /' || true
+            echo "  (nothing above means those lines have scrolled out of the log)"
+
+            echo
+            echo "═══ database ═══════════════════════════════════════════════"
+            npx prisma migrate status 2>&1 | grep -E "migrations found|up to date|not yet been applied|failed" | sed 's/^/  /'
+
+            echo
+            echo "═══ health, from the server itself ═════════════════════════"
+            # Bypasses Cloudflare and nginx, so a failure here is the app itself.
+            PORT=$(grep -E '^PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d '\r' || echo 4000)
+            curl -s --max-time 5 "http://127.0.0.1:${PORT:-4000}/api/v1/health" | sed 's/^/  /' || echo "  no response"
+
+            echo
+            echo
+            echo "═══ disk ═══════════════════════════════════════════════════"
+            df -h / | tail -1 | sed 's/^/  /'
