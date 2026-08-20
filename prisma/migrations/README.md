@@ -91,3 +91,25 @@ See `qa/REMAINING_TASKS.md` → T-01 follow-up.
 npx prisma migrate dev --name <describe_the_change>
 ```
 Commit the generated folder. Never edit an applied migration.
+
+
+## Known drift: `booking_slot_unique`
+
+`20260820103000_booking_slot_unique` creates a **partial** unique index — a slot may be held by at
+most one booking that has not been cancelled:
+
+```sql
+CREATE UNIQUE INDEX "booking_slot_unique"
+  ON "bookings" ("provider_id", "date", "time_slot")
+  WHERE "status" <> 'ملغي';
+```
+
+Prisma's datamodel cannot express a `WHERE` on an index, so `prisma migrate diff` reports this as an
+extra object in the database and would offer to drop it. **That is expected, and the index must stay.**
+It is also why `prisma db push` must never be run against a real database here: it would remove it
+without asking. The deploy uses `migrate deploy` for exactly this reason.
+
+The plain `@@unique([providerId, date, timeSlot])` that Prisma *can* express is the wrong constraint:
+a cancelled booking keeps its row, so it would reject every legitimate rebooking after a cancellation.
+`test/integration/booking-slot-constraint.int-spec.ts` fails in three places if the `WHERE` clause is
+removed, which is how that stays true.
