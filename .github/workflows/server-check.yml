@@ -52,8 +52,8 @@ jobs:
               echo "  files they touch:"
               git diff --stat origin/main...HEAD 2>/dev/null | sed 's/^/    /'
               echo
-              echo "  the change itself (first 120 lines):"
-              git diff origin/main...HEAD 2>/dev/null | head -120 | sed 's/^/    /'
+              echo "  the change itself:"
+              git diff origin/main...HEAD 2>/dev/null | head -260 | sed 's/^/    /'
             fi
 
             echo
