@@ -116,14 +116,25 @@ jobs:
             # asked it. Paths and counts only — never contents.
             FOUND=0
 
-            CRON=$(crontab -l 2>/dev/null | grep -icE "pg_dump|backup|dump" || echo 0)
-            [ "$CRON" != "0" ] && { echo "  root crontab: $CRON backup-looking entr(y|ies)"; FOUND=1; }
+            CRON=$(crontab -l 2>/dev/null | grep -icE "pg_dump|backup|dump" | head -1)
+            CRON=${CRON:-0}
+            if [ "$CRON" -gt 0 ] 2>/dev/null; then
+              echo "  root crontab — $CRON backup-looking entr(y/ies):"
+              crontab -l 2>/dev/null | grep -iE "pg_dump|backup|dump" | sed 's/^/    /'
+              FOUND=1
+            fi
 
             SYS=$(grep -rliE "pg_dump|pgbackrest|barman" /etc/cron.d /etc/cron.daily /etc/systemd/system 2>/dev/null | head -5)
             [ -n "$SYS" ] && { echo "  scheduled by:"; echo "$SYS" | sed 's/^/    /'; FOUND=1; }
 
-            TIMERS=$(systemctl list-timers --all --no-pager 2>/dev/null | grep -icE "backup|dump" || echo 0)
-            [ "$TIMERS" != "0" ] && { echo "  systemd timers matching backup/dump: $TIMERS"; FOUND=1; }
+            # Name them. "1 timer matched" could be a real backup or an unrelated
+            # unit with the word in it, and the difference is the whole answer.
+            TIMERS=$(systemctl list-timers --all --no-pager 2>/dev/null | grep -iE "backup|dump" | awk '{print $NF}' | head -5)
+            if [ -n "$TIMERS" ]; then
+              echo "  systemd timers matching backup/dump:"
+              echo "$TIMERS" | sed 's/^/    /'
+              FOUND=1
+            fi
 
             DUMPS=$(find /root /var/backups /opt /home /mnt -maxdepth 3 \
                       \( -name "*.sql" -o -name "*.sql.gz" -o -name "*.dump" -o -name "*.tar.gz" \) \
