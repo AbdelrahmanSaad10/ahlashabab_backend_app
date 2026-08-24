@@ -109,6 +109,42 @@ jobs:
             npx prisma migrate status 2>&1 | grep -E "migrations found|up to date|not yet been applied|failed" | sed 's/^/  /'
 
             echo
+            echo "═══ backups ════════════════════════════════════════════════"
+            # A charity's database holds donor records, national ID numbers and
+            # beneficiary details. Whether a copy of it exists anywhere is a
+            # bigger question than any line in the cost estimate, and nobody had
+            # asked it. Paths and counts only — never contents.
+            FOUND=0
+
+            CRON=$(crontab -l 2>/dev/null | grep -icE "pg_dump|backup|dump" || echo 0)
+            [ "$CRON" != "0" ] && { echo "  root crontab: $CRON backup-looking entr(y|ies)"; FOUND=1; }
+
+            SYS=$(grep -rliE "pg_dump|pgbackrest|barman" /etc/cron.d /etc/cron.daily /etc/systemd/system 2>/dev/null | head -5)
+            [ -n "$SYS" ] && { echo "  scheduled by:"; echo "$SYS" | sed 's/^/    /'; FOUND=1; }
+
+            TIMERS=$(systemctl list-timers --all --no-pager 2>/dev/null | grep -icE "backup|dump" || echo 0)
+            [ "$TIMERS" != "0" ] && { echo "  systemd timers matching backup/dump: $TIMERS"; FOUND=1; }
+
+            DUMPS=$(find /root /var/backups /opt /home /mnt -maxdepth 3 \
+                      \( -name "*.sql" -o -name "*.sql.gz" -o -name "*.dump" -o -name "*.tar.gz" \) \
+                      2>/dev/null | head -5)
+            if [ -n "$DUMPS" ]; then
+              echo "  dump-looking files:"
+              echo "$DUMPS" | while read -r f; do
+                echo "    $f  ($(du -h "$f" 2>/dev/null | cut -f1), modified $(date -r "$f" +%Y-%m-%d 2>/dev/null))"
+              done
+              FOUND=1
+            fi
+
+            if [ "$FOUND" = "0" ]; then
+              echo "  ⚠ NO BACKUP MECHANISM FOUND on this machine."
+              echo "    No cron entry, no systemd timer, no dump file anywhere obvious."
+              echo "    This does not rule out a snapshot taken by the hosting provider —"
+              echo "    that cannot be seen from inside the server and must be confirmed"
+              echo "    in the provider's control panel."
+            fi
+
+            echo
             echo "═══ data integrity ═════════════════════════════════════════"
             # Whether any slot is double-booked among non-cancelled rows. T-09
             # proved the application refuses a concurrent double-booking, but
