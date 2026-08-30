@@ -30,6 +30,7 @@ import { ReportsModule } from './reports/reports.module';
 import { AdminModule } from './admin/admin.module';
 import { UploadModule } from './upload/upload.module';
 import { HealthController } from './health.controller';
+import { LegalController } from './legal/legal.controller';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 
 @Module({
@@ -72,7 +73,7 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
     AdminModule,
     UploadModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, LegalController],
 })
 export class AppModule implements NestModule {
   /**
