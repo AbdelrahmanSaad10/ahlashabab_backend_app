@@ -138,8 +138,9 @@ export const PRIVACY_POLICY_HTML = `<!doctype html>
   </ul>
 
   <h2>من يطّلع عليها</h2>
-  <p>الاطّلاع مقصور على مسؤولي الجمعية المخوّلين، كلٌّ بحسب صلاحياته، ومع تسجيل كل تعديل باسم من
-    أجراه. وتُعالَج البيانات لدى مزوّدي الخدمات التاليين فقط:</p>
+  <p>الاطّلاع مقصور على مسؤولي الجمعية المخوّلين، كلٌّ بحسب صلاحياته، ومع تسجيل كل <b>تعديل</b> باسم من
+    أجراه. وتفاصيل طلب الاستشارة — بما فيها وصفك لحالتك — يطّلع عليها حاليًا الفريق المخوّل بمتابعة
+    الطلبات، وليست مقصورة على مستشار بعينه. وتُعالَج البيانات لدى مزوّدي الخدمات التاليين فقط:</p>
   <ul>
     <li><b>مزوّد الاستضافة</b> — تخزين قاعدة البيانات والخوادم.</li>
     <li><b>Google (Firebase)</b> — إرسال الإشعارات إلى جهازك فقط.</li>
@@ -156,7 +157,7 @@ export const PRIVACY_POLICY_HTML = `<!doctype html>
   <p>يحقّ لك في أي وقت أن تطلب: <b>الاطّلاع</b> على بياناتك، أو <b>تصحيحها</b>، أو
     <b>حذف حسابك وبياناته</b>، أو <b>الاعتراض</b> على معالجة معيّنة.</p>
   <p>لطلب الحذف، راسلنا على <strong>[[بريد التواصل]]</strong> من البريد المسجَّل في حسابك، وسنستجيب
-    خلال <strong>[[المدة]]</strong>. قد نحتفظ بالحدّ الأدنى من سجلات التبرع إذا كان القانون يلزمنا بذلك،
+    خلال <strong>مدة لا تتجاوز 30 يومًا</strong>. قد نحتفظ بالحدّ الأدنى من سجلات التبرع إذا كان القانون يلزمنا بذلك،
     ونوضّح لك ذلك عند الرد.</p>
 
   <h2>الأطفال</h2>
@@ -249,8 +250,10 @@ export const PRIVACY_POLICY_HTML = `<!doctype html>
   </ul>
 
   <h2>Who can see it</h2>
-  <p>Access is limited to authorised foundation staff, each according to their role, with every change
-    recorded against the person who made it. Data is processed by these providers only:</p>
+  <p>Access is limited to authorised foundation staff, each according to their role, with every
+    <b>change</b> recorded against the person who made it. The details of a consultation request —
+    including your description of your situation — are currently visible to the team handling
+    requests, not restricted to one assigned consultant. Data is processed by these providers only:</p>
   <ul>
     <li><b>Hosting provider</b> — database and server storage.</li>
     <li><b>Google (Firebase)</b> — delivering notifications to your device only.</li>
@@ -268,7 +271,7 @@ export const PRIVACY_POLICY_HTML = `<!doctype html>
   <p>At any time you may ask to <b>see</b> your data, <b>correct</b> it, <b>delete your account and
     its data</b>, or <b>object</b> to a particular use.</p>
   <p>To request deletion, write to <strong>[[contact email]]</strong> from the address registered on
-    your account and we will respond within <strong>[[period]]</strong>. We may retain minimal
+    your account and we will respond <strong>within 30 days</strong>. We may retain minimal
     donation records where the law requires it, and will say so when we reply.</p>
 
   <h2>Children</h2>
