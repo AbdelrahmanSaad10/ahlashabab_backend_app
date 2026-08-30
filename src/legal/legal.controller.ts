@@ -3,6 +3,7 @@ import { Response } from 'express';
 import { ApiExcludeEndpoint, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator';
 import { PRIVACY_POLICY_HTML } from './privacy-policy.page';
+import { ACCOUNT_DELETION_HTML } from './account-deletion.page';
 
 /**
  * Public legal pages.
@@ -35,5 +36,20 @@ export class LegalController {
   @Header('Cache-Control', 'public, max-age=3600')
   privacy(@Res() res: Response) {
     res.send(PRIVACY_POLICY_HTML);
+  }
+
+  @ApiOperation({
+    summary: 'Account deletion instructions (public HTML page)',
+    description:
+      'Play requires a web URL for deletion requests separately from the in-app control — someone '
+      + 'who has uninstalled the app still has data and no way back into it.',
+  })
+  @ApiExcludeEndpoint()
+  @Public()
+  @Get('account-deletion')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  @Header('Cache-Control', 'public, max-age=3600')
+  accountDeletion(@Res() res: Response) {
+    res.send(ACCOUNT_DELETION_HTML);
   }
 }

@@ -1,5 +1,7 @@
 import {
   Body,
+  HttpCode,
+  HttpStatus,
   Controller,
   Delete,
   Get,
@@ -8,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { DeleteAccountDto, DeleteAccountSchema } from './dto/delete-account.dto';
 import { UsersService } from './users.service';
 import {
   UpdateProfileDto,
@@ -98,6 +101,24 @@ export class UsersController {
       dto.entityType,
       dto.entityId,
     );
+  }
+
+  @ApiOperation({
+    summary: 'Delete your account and personal data',
+    description:
+      'Irreversible. Removes the account and everything identifying you; anonymises the donation, '
+      + 'booking and consultation records the foundation keeps for accounting and operations — '
+      + 'including erasing the free-text description in a consultation request. Requires '
+      + '`{"confirm":"DELETE"}` in the body: an irreversible action should not be one stray call away.',
+  })
+  @ApiZodBody(DeleteAccountSchema)
+  @Delete()
+  @HttpCode(HttpStatus.OK)
+  deleteAccount(
+    @CurrentUser() user: any,
+    @Body(new ZodValidationPipe(DeleteAccountSchema)) _dto: DeleteAccountDto,
+  ) {
+    return this.usersService.deleteAccount(user.sub);
   }
 
   @ApiOperation({ summary: 'Register a push notification device token' })
